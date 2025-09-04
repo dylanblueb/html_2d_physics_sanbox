@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>元素交互 - 物理沙盒模拟</title>
+    <style>
+        /* 全局样式 */
+        :root {
+            --primary: #3498db;
+            --secondary: #e67e22;
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --neutral: #95a5a6;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #121212;
+            color: var(--light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        header {
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 10;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 700;
+        }
+        
+        main {
+            display: flex;
+            flex: 1;
+        }
+        
+        /* 元素调色板样式 */
+        .controls {
+            width: 220px;
+            background-color: rgba(30, 30, 30, 0.9);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .controls h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: var(--light);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        
+        .element-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .element-group h3 {
+            font-size: 0.9rem;
+            color: var(--neutral);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .element-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        
+        .element-btn {
+            padding: 8px 0;
+            background-color: rgba(60, 60, 60, 0.8);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .element-btn .icon {
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+        
+        .element-btn .name {
+            font-size: 0.7rem;
+            text-transform: capitalize;
+        }
+        
+        .element-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .element-btn.active {
+            background-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.4);
+        }
+        
+        .water { background-color: #3498db; }
+        .stone { background-color: #7f8c8d; }
+        .sand { background-color: #f1c40f; }
+        .wood { background-color: #d35400; }
+        .fire { background-color: #e74c3c; }
+        .oil { background-color: #8e44ad; }
+        .gas { background-color: #95a5a6; }
+        .ice { background-color: #00CED1; }
+        .plant { background-color: #2ecc71; }
+        
+        /* 画布容器 */
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #0a0a0a;
+        }
+        
+        canvas {
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background-color: black;
+            border-radius: 2px;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        /* 工具栏 */
+        .toolbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 40px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .tool-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(60, 60, 60, 0.8);
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .tool-btn:hover {
+            background-color: rgba(80, 80, 80, 0.9);
+            transform: translateY(-2px);
+        }
+        
+        .tool-btn.active {
+            background-color: var(--primary);
+        }
+        
+        .size-control {
+            display: flex;
+            align-items: center;
+            background-color: rgba(60, 60, 60, 0.8);
+            border-radius: 40px;
+            padding: 0 10px;
+        }
+        
+        .size-control input {
+            width: 80px;
+            margin: 0 10px;
+            accent-color: var(--primary);
+        }
+        
+        .size-value {
+            color: var(--light);
+            font-size: 0.8rem;
+            min-width: 25px;
+            text-align: right;
+        }
+        
+        /* 物理参数控制 */
+        .physics-controls {
+            margin-top: auto;
+        }
+        
+        .physics-control {
+            margin-bottom: 12px;
+        }
+        
+        .physics-control label {
+            display: block;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+            color: var(--neutral);
+        }
+        
+        .physics-control input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+        }
+        
+        .value-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--light);
+            opacity: 0.7;
+        }
+        
+        /* 动画和效果 */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
+        }
+        
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>物理沙盒模拟</h1>
+    </header>
+    
+    <main>
+        <aside class="controls">
+            <h2>元素调色板</h2>
+            
+            <div class="element-group">
+                <h3>基础元素</h3>
+                <div class="element-buttons">
+                    <button class="element-btn water active" data-element="water">
+                        <div class="icon">💧</div>
+                        <div class="name">水</div>
+                    </button>
+                    <button class="element-btn sand" data-element="sand">
+                        <div class="icon">🏝️</div>
+                        <div class="name">沙子</div>
+                    </button>
+                    <button class="element-btn stone" data-element="stone">
+                        <div class="icon">🪨</div>
+                        <div class="name">石头</div>
+                    </button>
+                    <button class="element-btn wood" data-element="wood">
+                        <div class="icon">🪵</div>
+                        <div class="name">木材</div>
+                    </button>
+                    <button class="element-btn fire" data-element="fire">
+                        <div class="icon">🔥</div>
+                        <div class="name">火焰</div>
+                    </button>
+                    <button class="element-btn oil" data-element="oil">
+                        <div class="icon">🛢️</div>
+                        <div class="name">油</div>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="element-group">
+                <h3>高级元素</h3>
+                <div class="element-buttons">
+                    <button class="element-btn gas" data-element="gas">
+                        <div class="icon">💨</div>
+                        <div class="name">气体</div>
+                    </button>
+                    <button class="element-btn ice" data-element="ice">
+                        <div class="icon">❄️</div>
+                        <div class="name">冰</div>
+                    </button>
+                    <button class="element-btn plant" data-element="plant">
+                        <div class="icon">🌱</div>
+                        <div class="name">植物</div>
+                    </button>
+                    <button class="element-btn" data-element="acid">
+                        <div class="icon">⚗️</div>
+                        <div class="name">酸</div>
+                    </button>
+                    <button class="element-btn" data-element="lava">
+                        <div class="icon">🌋</div>
+                        <div class="name">岩浆</div>
+                    </button>
+                    <button class="element-btn" data-element="void">
+                        <div class="icon">🕳️</div>
+                        <div class="name">虚空</div>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="physics-controls">
+                <h3>物理参数</h3>
+                
+                <div class="physics-control">
+                    <label for="gravity">重力强度</label>
+                    <input type="range" id="gravity" min="0" max="100" value="50">
+                    <div class="value-display">
+                        <span>0</span>
+                        <span id="gravity-value">50</span>
+                        <span>100</span>
+                    </div>
+                </div>
+                
+                <div class="physics-control">
+                    <label for="viscosity">流体粘度</label>
+                    <input type="range" id="viscosity" min="0" max="100" value="20">
+                    <div class="value-display">
+                        <span>低</span>
+                        <span id="viscosity-value">20</span>
+                        <span>高</span>
+                    </div>
+                </div>
+                
+                <div class="physics-control">
+                    <label for="heat-transfer">热传导速率</label>
+                    <input type="range" id="heat-transfer" min="0" max="100" value="30">
+                    <div class="value-display">
+                        <span>慢</span>
+                        <span id="heat-value">30</span>
+                        <span>快</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <div class="canvas-container">
+            <canvas id="simulation-canvas" width="800" height="600"></canvas>
+            
+            <div class="toolbar">
+                <button class="tool-btn active" data-tool="brush" title="画笔工具">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M15.825.12a.5.5 0 0 1 .132.584c-1.53 3.43-4.743 8.17-7.095 10.64a6.067 6.067 0 0 1-2.373 1.534c-.018.227-.06.538-.16.868-.201.659-.667 1.479-1.708 1.74a8.118 8.118 0 0 1-3.078.132 3.659 3.659 0 0 1-.562-.135 1.382 1.382 0 0 1-.466-.247.714.714 0 0 1-.204-.288.622.622 0 0 1 .004-.443c.095-.245.316-.38.461-.452.394-.197.625-.453.867-.826.095-.144.184-.297.287-.472l.117-.198c.151-.255.326-.54.546-.848.528-.739 1.201-.925 1.746-.896.126.007.243.025.348.048.062-.172.142-.38.238-.608.261-.619.658-1.419 1.187-2.069 2.176-2.67 6.18-6.206 9.117-8.104a.5.5 0 0 1 .596.04z"/>
+                    </svg>
+                </button>
+                <button class="tool-btn" data-tool="erase" title="擦除工具">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm.66 11.34L3.453 8.254 1.914 9.793a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"/>
+                    </svg>
+                </button>
+                <button class="tool-btn" data-tool="bucket" title="填充工具">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M6.192 2.78c-.458-.677-.927-1.248-1.35-1.643a2.972 2.972 0 0 0-.71-.515c-.217-.104-.56-.205-.882-.02-.367.213-.427.63-.43.896-.003.304.064.664.173 1.044.196.687.556 1.528 1.035 2.402L.752 8.22c-.277.277-.269.656-.218.918.055.283.187.593.36.903.348.627.92 1.361 1.626 2.068.707.707 1.441 1.278 2.068 1.626.31.173.62.305.903.36.262.05.64.059.918-.218l5.615-5.615c.118.257.092.512.05.939-.03.292-.068.665-.073 1.176v.123h.003a1 1 0 0 0 1.993 0H14v-.057a1.01 1.01 0 0 0-.004-.117c-.055-1.25-.7-2.738-1.86-3.494a4.322 4.322 0 0 0-.211-.434c-.349-.626-.92-1.36-1.627-2.067-.707-.707-1.441-1.279-2.068-1.627-.31-.172-.62-.304-.903-.36-.262-.05-.64-.058-.918.219l-.217.216zM4.16 1.867c.381.356.844.922 1.311 1.632l-.704.705c-.382-.727-.66-1.402-.813-1.938a3.283 3.283 0 0 1-.131-.673c.091.061.204.15.337.274zm.394 3.965c.54.852 1.107 1.567 1.607 2.033a.5.5 0 1 0 .682-.732c-.453-.422-1.017-1.136-1.564-2.027l1.088-1.088c.054.12.115.243.183.365.349.627.92 1.361 1.627 2.068.706.707 1.44 1.278 2.068 1.626.122.068.244.13.365.183l-4.861 4.862a.571.571 0 0 1-.068-.01c-.137-.027-.342-.104-.608-.252-.524-.292-1.186-.8-1.846-1.46-.66-.66-1.168-1.32-1.46-1.846-.147-.265-.225-.47-.251-.607a.573.573 0 0 1-.01-.068l3.048-3.047zm2.87-1.935a2.44 2.44 0 0 1-.241-.561c.135.033.324.11.562.241.524.292 1.186.8 1.846 1.46.45.45.83.901 1.118 1.31a3.497 3.497 0 0 0-1.066.091 11.27 11.27 0 0 1-.76-.694c-.66-.66-1.167-1.322-1.458-1.847z"/>
+                    </svg>
+                </button>
+                <div class="size-control">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8zm15 0A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.5 7h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1z"/>
+                    </svg>
+                    <input type="range" id="brush-size" min="1" max="50" value="10">
+                    <span class="size-value" id="size-value">10</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8zm15 0A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                    </svg>
+                </div>
+                <button class="tool-btn" data-tool="clear" title="清空画布">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1H5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5Zm-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5ZM4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06Zm6.53-.528a.5.5 0 0 0-.528.47l-.5 8.5a.5.5 0 0 0 .998.058l.5-8.5a.5.5 0 0 0-.47-.528ZM8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5Z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 获取画布和上下文
+            const canvas = document.getElementById('simulation-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 当前选择的元素和工具
+            let currentElement = 'water';
+            let currentTool = 'brush';
+            let brushSize = 10;
+            
+            // 物理参数
+            let gravity = 0.5;
+            let viscosity = 0.2;
+            let heatTransfer = 0.3;
+            
+            // 画布缩放适配
+            function resizeCanvas() {
+                const container = document.querySelector('.canvas-container');
+                const containerWidth = container.clientWidth;
+                const containerHeight = container.clientHeight;
+                
+                // 保持画布比例
+                const aspectRatio = canvas.width / canvas.height;
+                
+                // 计算适合容器的尺寸
+                let width = containerWidth - 40;
+                let height = width / aspectRatio;
+                
+                if (height > containerHeight - 40) {
+                    height = containerHeight - 40;
+                    width = height * aspectRatio;
+                }
+                
+                // 设置画布显示尺寸
+                canvas.style.width = `${width}px`;
+                canvas.style.height = `${height}px`;
+            }
+            
+            // 初始调用一次
+            resizeCanvas();
+            
+            // 窗口调整大小时重新计算
+            window.addEventListener('resize', resizeCanvas);
+            
+            // 模拟世界创建
+            const CELL_SIZE = 4; // 每个粒子的大小
+            const GRID_WIDTH = Math.floor(canvas.width / CELL_SIZE);
+            const GRID_HEIGHT = Math.floor(canvas.height / CELL_SIZE);
+            
+            // 元素类型和属性
+            const ELEMENTS = {
+                empty: { color: 'black', density: 0, state: 'empty' },
+                water: { color: '#3498db', density: 1, state: 'liquid', viscosity: 0.1 },
+                sand: { color: '#f1c40f', density: 2, state: 'granular' },
+                stone: { color: '#7f8c8d', density: 3, state: 'solid', static: true },
+                wood: { color: '#d35400', density: 1.5, state: 'solid', flammable: true },
+                fire: { color: '#e74c3c', density: 0.1, state: 'energy', temperature: 100, lifespan: 100 },
+                oil: { color: '#8e44ad', density: 0.8, state: 'liquid', flammable: true },
+                gas: { color: '#95a5a699', density: 0.1, state: 'gas', dispersion: 0.8 },
+                ice: { color: '#00CED1', density: 0.9, state: 'solid', temperature: -10, meltPoint: 0 },
+                plant: { color: '#2ecc71', density: 1.2, state: 'solid', flammable: true, growable: true },
+                acid: { color: '#A9ED00', density: 1.1, state: 'liquid', corrosive: true },
+                lava: { color: '#FF4500', density: 2.2, state: 'liquid', temperature: 200 },
+                void: { color: '#000000', density: 0, state: 'void', absorb: true }
+            };
+            
+            // 创建空网格
+            let grid = Array(GRID_WIDTH).fill().map(() => 
+                Array(GRID_HEIGHT).fill().map(() => ({
+                    type: 'empty',
+                    temperature: 20,
+                    lifetime: 0,
+                    velocity: { x: 0, y: 0 }
+                }))
+            );
+            
+            // 事件监听
+            let isDrawing = false;
+            let lastX, lastY;
+            
+            // 鼠标事件
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseleave', stopDrawing);
+            
+            // 触摸事件支持
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousedown', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                canvas.dispatchEvent(mouseEvent);
+            });
+            
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousemove', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                canvas.dispatchEvent(mouseEvent);
+            });
+            
+            canvas.addEventListener('touchend', (e) => {
+                const mouseEvent = new MouseEvent('mouseup', {});
+                canvas.dispatchEvent(mouseEvent);
+            });
+            
+            // 元素按钮点击事件
+            document.querySelectorAll('.element-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.element-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    button.classList.add('active');
+                    currentElement = button.dataset.element;
+                });
+            });
+            
+            // 工具按钮点击事件
+            document.querySelectorAll('.tool-btn[data-tool]').forEach(button => {
+                button.addEventListener('click', () => {
+                    if (button.dataset.tool === 'clear') {
+                        clearCanvas();
+                        return;
+                    }
+                    
+                    document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    button.classList.add('active');
+                    currentTool = button.dataset.tool;
+                });
+            });
+            
+            // 笔刷大小控制
+            const brushSizeInput = document.getElementById('brush-size');
+            const sizeValueDisplay = document.getElementById('size-value');
+            
+            brushSizeInput.addEventListener('input', () => {
+                brushSize = parseInt(brushSizeInput.value);
+                sizeValueDisplay.textContent = brushSize;
+            });
+            
+            // 物理参数控制
+            const gravitySlider = document.getElementById('gravity');
+            const viscositySlider = document.getElementById('viscosity');
+            const heatTransferSlider = document.getElementById('heat-transfer');
+            
+            gravitySlider.addEventListener('input', () => {
+                gravity = parseFloat(gravitySlider.value) / 100;
+                document.getElementById('gravity-value').textContent = gravitySlider.value;
+            });
+            
+            viscositySlider.addEventListener('input', () => {
+                viscosity = parseFloat(viscositySlider.value) / 100;
+                document.getElementById('viscosity-value').textContent = viscositySlider. value;
+            });
+            
+            heatTransferSlider.addEventListener('input', () => {
+                heatTransfer = parseFloat(heatTransferSlider.value) / 100;
+                document.getElementById('heat-value').textContent = heatTransferSlider.value;
+            });
+            
+            function startDrawing(e) {
+                isDrawing = true;
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                lastX = Math.floor((e.clientX - rect.left) * scaleX / CELL_SIZE);
+                lastY = Math.floor((e.clientY - rect.top) * scaleY / CELL_SIZE);
+                
+                draw(e);
+            }
+            
+            function draw(e) {
+                if (!isDrawing) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                const x = Math.floor((e.clientX - rect.left) * scaleX / CELL_SIZE);
+                const y = Math.floor((e.clientY - rect.top) * scaleY / CELL_SIZE);
+                
+                if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) return;
+                
+                // 线性插值以填充鼠标移动之间的间隙
+                const dx = Math.abs(x - lastX);
+                const dy = Math.abs(y - lastY);
+                const steps = Math.max(dx, dy);
+                
+                if (steps > 0) {
+                    for (let i = 0; i <= steps; i++) {
+                        const ix = Math.round(lastX + (x - lastX) * (i / steps));
+                        const iy = Math.round(lastY + (y - lastY) * (i / steps));
+                        
+                        applyTool(ix, iy);
+                    }
+                } else {
+                    applyTool(x, y);
+                }
+                
+                lastX = x;
+                lastY = y;
+            }
+            
+            function stopDrawing() {
+                isDrawing = false;
+            }
+            
+            function applyTool(x, y) {
+                // 应用笔刷工具
+                for (let dx = -brushSize/2; dx < brushSize/2; dx++) {
+                    for (let dy = -brushSize/2; dy < brushSize/2; dy++) {
+                        // 计算当前位置
+                        const nx = Math.floor(x + dx);
+                        const ny = Math.floor(y + dy);
+                        
+                        // 确保在画布内
+                        if (nx < 0 || nx >= GRID_WIDTH || ny < 0 || ny >= GRID_HEIGHT) continue;
+                        
+                        // 计算到中心的距离，创建圆形笔刷
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist > brushSize/2) continue;
+                        
+                        // 根据不同工具应用操作
+                        if (currentTool === 'brush') {
+                            grid[nx][ny] = {
+                                type: currentElement,
+                                temperature: ELEMENTS[currentElement].temperature || 20,
+                                lifetime: ELEMENTS[currentElement].lifespan || 0,
+                                velocity: { x: 0, y: 0 }
+                            };
+                        } else if (currentTool === 'erase') {
+                            grid[nx][ny] = {
+                                type: 'empty',
+                                temperature: 20,
+                                lifetime: 0,
+                                velocity: { x: 0, y: 0 }
+                            };
+                        } else if (currentTool === 'bucket') {
+                            // 暂时作为笔刷的放大版本
+                            grid[nx][ny] = {
+                                type: currentElement,
+                                temperature: ELEMENTS[currentElement].temperature || 20,
+                                lifetime: ELEMENTS[currentElement].lifespan || 0,
+                                velocity: { x: 0, y: 0 }
+                            };
+                        }
+                    }
+                }
+            }
+            
+            function clearCanvas() {
+                grid = Array(GRID_WIDTH).fill().map(() => 
+                    Array(GRID_HEIGHT).fill().map(() => ({
+                        type: 'empty',
+                        temperature: 20,
+                        lifetime: 0,
+                        velocity: { x: 0, y: 0 }
+                    }))
+                );
+            }
+            
+            // 物理模拟循环
+            function update() {
+                // 创建网格的副本，避免在更新过程中修改正在读取的网格
+                let newGrid = JSON.parse(JSON.stringify(grid));
+                
+                // 从底部向上更新，以便流体向下流动
+                for (let y = GRID_HEIGHT - 1; y >= 0; y--) {
+                    for (let x = 0; x < GRID_WIDTH; x++) {
+                        const cell = grid[x][y];
+                        
+                        if (cell.type === 'empty') continue;
+                        
+                        const element = ELEMENTS[cell.type];
+                        
+                        // 处理有限生命周期的元素（如火焰）
+                        if (element.lifespan) {
+                            cell.lifetime++;
+                            if (cell.lifetime > element.lifespan) {
+                                newGrid[x][y] = {
+                                    type: 'empty',
+                                    temperature: Math.max(cell.temperature - 5, 20),
+                                    lifetime: 0,
+                                    velocity: { x: 0, y: 0 }
+                                };
+                                continue;
+                            }
+                        }
+                        
+                        // 火焰扩散和点燃
+                        if (cell.type === 'fire') {
+                            const neighbors = getNeighbors(x, y);
+                            for (const [nx, ny] of neighbors) {
+                                const neighbor = grid[nx][ny];
+                                if (neighbor.type !== 'empty' && ELEMENTS[neighbor.type].flammable) {
+                                    if (Math.random() < 0.1) {
+                                        newGrid[nx][ny] = {
+                                            type: 'fire',
+                                            temperature: 100,
+                                            lifetime: 0,
+                                            velocity: { x: 0, y: -1 }
+                                        };
+                                    }
+                                }
+                            }
+                            
+                            // 火向上移动
+                            if (y > 0 && grid[x][y-1].type === 'empty') {
+                                newGrid[x][y-1] = {...cell};
+                                newGrid[x][y] = {
+                                    type: 'empty',
+                                    temperature: cell.temperature - 5,
+                                    lifetime: 0,
+                                    velocity: { x: 0, y: 0 }
+                                };
+                            }
+                            continue;
+                        }
+                        
+                        // 不同状态元素处理逻辑
+                        switch (element.state) {
+                            case 'liquid': 
+                                simulateLiquid(x, y, cell, newGrid);
+                                break;
+                            case 'granular': 
+                                simulateGranular(x, y, cell, newGrid);
+                                break;
+                            case 'gas':
+                                simulateGas(x, y, cell, newGrid);
+                                break;
+                        }
+                        
+                        // 热传导
+                        const neighbors = getNeighbors(x, y);
+                        for (const [nx, ny] of neighbors) {
+                            const neighbor = grid[nx][ny];
+                            if (neighbor.type !== 'empty') {
+                                // 热量从高温流向低温
+                                const tempDiff = cell.temperature - neighbor.temperature;
+                                if (Math.abs(tempDiff) > 0) {
+                                    const transfer = tempDiff * heatTransfer * 0.1;
+                                    newGrid[x][y].temperature -= transfer;
+                                    newGrid[nx][ny].temperature += transfer;
+                                }
+                            }
+                        }
+                        
+                        // 温度相关状态变化
+                        if (cell.type === 'water' && cell.temperature <= 0) {
+                            newGrid[x][y].type = 'ice';
+                        }
+                        if (cell.type === 'ice' && cell.temperature > 0) {
+                            newGrid[x][y].type = 'water';
+                        }
+                        if (cell.type === 'water' && cell.temperature >= 100) {
+                            newGrid[x][y].type = 'gas';
+                        }
+                    }
+                }
+                
+                // 更新网格
+                grid = newGrid;
+            }
+            
+            // 获取相邻位置
+            function getNeighbors(x, y) {
+                const neighbors = [];
+                const directions = [
+                    [0, 1], [1, 1], [1, 0], [1, -1],
+                    [0, -1], [-1, -1], [-1, 0], [-1, 1]
+                ];
+                
+                for (const [dx, dy] of directions) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx >= 0 && nx < GRID_WIDTH && ny >= 0 && ny < GRID_HEIGHT) {
+                        neighbors.push([nx, ny]);
+                    }
+                }
+                
+                return neighbors;
+            }
+            
+            // 液体模拟
+            function simulateLiquid(x, y, cell, newGrid) {
+                const density = ELEMENTS[cell.type].density;
+                const viscosity = ELEMENTS[cell.type].viscosity || 0.1;
+                
+                // 如果下方为空，则下落
+                if (y < GRID_HEIGHT - 1 && grid[x][y+1].type === 'empty') {
+                    swap(newGrid, x, y, x, y+1);
+                    newGrid[x][y+1].velocity.y += gravity;
+                    return;
+                }
+                
+                // 如果下方为密度更低的液体，则交换（浮力）
+                if (y < GRID_HEIGHT - 1 && 
+                    ELEMENTS[grid[x][y+1].type].state === 'liquid' && 
+                    ELEMENTS[grid[x][y+1].type].density < density) {
+                    swap(newGrid, x, y, x, y+1);
+                    return;
+                }
+                
+                // 模拟扩散到左/右
+                const direction = Math.random() > 0.5 ? 1 : -1;
+                
+                // 向左或右扩散
+                if (x + direction >= 0 && 
+                    x + direction < GRID_WIDTH && 
+                    grid[x + direction][y].type === 'empty') {
+                    swap(newGrid, x, y, x + direction, y);
+                    return;
+                }
+                
+                // 检查对角线方向
+                if (y < GRID_HEIGHT - 1 && 
+                    x + direction >= 0 && 
+                    x + direction < GRID_WIDTH && 
+                    grid[x + direction][y + 1].type === 'empty') {
+                    swap(newGrid, x, y, x + direction, y + 1);
+                    return;
+                }
+                
+                // 向另一方向尝试
+                if (x - direction >= 0 && 
+                    x - direction < GRID_WIDTH && 
+                    grid[x - direction][y].type === 'empty') {
+                    swap(newGrid, x, y, x - direction, y);
+                    return;
+                }
+                
+                if (y < GRID_HEIGHT - 1 && 
+                    x - direction >= 0 && 
+                    x - direction < GRID_WIDTH && 
+                    grid[x - direction][y + 1].type === 'empty') {
+                    swap(newGrid, x, y, x - direction, y + 1);
+                    return;
+                }
+            }
+            
+            // 粒状材料模拟（如沙子）
+            function simulateGranular(x, y, cell, newGrid) {
+                // 如果下方为空，则下落
+                if (y < GRID_HEIGHT - 1 && grid[x][y+1].type === 'empty') {
+                    swap(newGrid, x, y, x, y+1);
+                    return;
+                }
+                
+                // 检查对角线
+                const direction = Math.random() > 0.5 ? 1 : -1;
+                
+                if (y < GRID_HEIGHT - 1 && 
+                    x + direction >= 0 && 
+                    x + direction < GRID_WIDTH && 
+                    grid[x + direction][y + 1].type === 'empty') {
+                    swap(newGrid, x, y, x + direction, y + 1);
+                    return;
+                }
+                
+                if (y < GRID_HEIGHT - 1 && 
+                    x - direction >= 0 && 
+                    x - direction < GRID_WIDTH && 
+                    grid[x - direction][y + 1].type === 'empty') {
+                    swap(newGrid, x, y, x - direction, y + 1);
+                    return;
+                }
+                
+                // 粒状材料可以在液体中下沉
+                if (y < GRID_HEIGHT - 1 && 
+                    ELEMENTS[grid[x][y+1].type].state === 'liquid' && 
+                    ELEMENTS[grid[x][y+1].type].density < ELEMENTS[cell.type].density) {
+                    swap(newGrid, x, y, x, y+1);
+                    return;
+                }
+            }
+            
+            // 气体模拟
+            function simulateGas(x, y, cell, newGrid) {
+                // 气体上升
+                if (y > 0 && grid[x][y-1].type === 'empty') {
+                    swap(newGrid, x, y, x, y-1);
+                    return;
+                }
+                
+                // 水平移动
+                const direction = Math.random() > 0.5 ? 1 : -1;
+                
+                if (x + direction >= 0 && 
+                    x + direction < GRID_WIDTH && 
+                    grid[x + direction][y].type === 'empty') {
+                    swap(newGrid, x, y, x + direction, y);
+                    return;
+                }
+                
+                if (x - direction >= 0 && 
+                    x - direction < GRID_WIDTH && 
+                    grid[x - direction][y].type === 'empty') {
+                    swap(newGrid, x, y, x - direction, y);
+                    return;
+                }
+                
+                // 对角线上方
+                if (y > 0 && 
+                    x + direction >= 0 && 
+                    x + direction < GRID_WIDTH && 
+                    grid[x + direction][y - 1].type === 'empty') {
+                    swap(newGrid, x, y, x + direction, y - 1);
+                    return;
+                }
+                
+                if (y > 0 && 
+                    x - direction >= 0 && 
+                    x - direction < GRID_WIDTH && 
+                    grid[x - direction][y - 1].type === 'empty') {
+                    swap(newGrid, x, y, x - direction, y - 1);
+                    return;
+                }
+                
+                // 可能的均化和消散
+                if (Math.random() < ELEMENTS[cell.type].dispersion) {
+                    newGrid[x][y] = {
+                        type: 'empty',
+                        temperature: cell.temperature,
+                        lifetime: 0,
+                        velocity: { x: 0, y: 0 }
+                    };
+                }
+            }
+            
+            // 交换两个位置的元素
+            function swap(grid, x1, y1, x2, y2) {
+                const temp = {...grid[x1][y1]};
+                grid[x1][y1] = {...grid[x2][y2]};
+                grid[x2][y2] = temp;
+            }
+            
+            // 渲染函数
+            function render() {
+                // 清除画布
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 绘制元素
+                for (let x = 0; x < GRID_WIDTH; x++) {
+                    for (let y = 0; y < GRID_HEIGHT; y++) {
+                        const cell = grid[x][y];
+                        
+                        if (cell.type === 'empty') continue;
+                        
+                        const element = ELEMENTS[cell.type];
+                        
+                        // 绘制单元格
+                        ctx.fillStyle = element.color;
+                        
+                        // 对某些元素应用特效
+                        if (cell.type === 'fire') {
+                            // 随机调整火焰颜色
+                            const brightness = 1 - cell.lifetime / element.lifespan;
+                            const r = 255;
+                            const g = Math.floor(brightness * 165);
+                            const b = 0;
+                            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${brightness})`;
+                        }
+                        
+                        if (element.state === 'liquid' || element.state === 'gas') {
+                            // 对液体和气体添加一点透明度
+                            const baseColor = element.color;
+                            if (baseColor.startsWith('#')) {
+                                // 处理十六进制颜色
+                                const opacity = element.state === 'gas' ? 0.7 : 0.9;
+                                ctx.fillStyle = baseColor + Math.floor(opacity * 255).toString(16).padStart(2, '0');
+                            }
+                        }
+                        
+                        ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    }
+                }
+            }
+            
+            // 动画循环
+            let lastTime = 0;
+            const simulationSpeed = 1000 / 60; // 目标60FPS
+            
+            function gameLoop(timestamp) {
+                const deltaTime = timestamp - lastTime;
+                
+                if (deltaTime >= simulationSpeed) {
+                    update();
+                    render();
+                    lastTime = timestamp;
+                }
+                
+                requestAnimationFrame(gameLoop);
+            }
+            
+            // 启动游戏循环
+            gameLoop(0);
+        });
+    </script>
+</body>
+</html>
