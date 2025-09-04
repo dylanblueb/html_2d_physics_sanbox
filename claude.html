@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>物理沙盒模拟器</title>
     <style>
         * {
@@ -440,7 +440,7 @@
                         lifetime: 100,
                         condensesTo: 'water',
                         melting: false,
-                        coolingRate: 0.5  // 增加蒸汽冷却速率
+                        coolingRate: 0.5
                     },
                     lava: {
                         color: '#ff4500',
@@ -620,13 +620,17 @@
                         
                         const element = this.elementTypes[cell.type];
                         
-                        // 生命周期
+                        // 生命周期处理
                         if (element.lifetime && cell.lifetime > 0) {
                             cell.lifetime--;
                             if (cell.lifetime <= 0) {
                                 this.nextGrid[y][x].type = 'empty';
+                                this.nextGrid[y][x].lifetime = 0;
+                                this.nextGrid[y][x].temperature = 20;
                                 continue;
                             }
+                            // 更新下一帧网格的生命周期
+                            this.nextGrid[y][x].lifetime = cell.lifetime;
                         }
                         
                         // 温度传导
@@ -821,7 +825,7 @@
                     this.velocityGrid[y][x] = { vx: 0, vy: -1 };
                 }
                 
-                // 凝结（加快蒸汽冷却）
+                // 凝结
                 if (cell.type === 'steam') {
                     cell.temperature -= element.coolingRate || 0.1;
                     if (cell.temperature < 50) {
