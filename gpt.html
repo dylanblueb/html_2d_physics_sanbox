@@ -280,13 +280,6 @@
   </main>
 
   <script>
-    /* ===========================
-       核心模拟实现（单文档）
-       - 语义清晰、注释充分
-       - 修改：所有元素都会落下
-       - 修改：新元素不会覆盖已有元素，在最近空白处生成
-       - 修改：植物特性融合进木材元素
-       ============================ */
 
     /* -------- 模型/参数 -------- */
     const canvas = document.getElementById('sim');
@@ -824,7 +817,7 @@
 
     // 木材融合了植物特性
     function updateWood(x,y){
-      // 木材消耗水分（调整为原来的10%）
+      // 木材消耗水分
       const waterConsumed = 0.002;
       woodHydration[x][y] = woodHydration[x][y] - waterConsumed;
       
