@@ -791,7 +791,7 @@
         const nx = x + neighbors[n][0], ny = y + neighbors[n][1];
         if (!inBounds(nx, ny)) continue;
         const ni = idx(nx, ny);
-        if (grid[ni] === EL.WATER && Math.random() < 0.35){
+        if (grid[ni] === EL.WATER && Math.random() < 0.05){
           grid[ni] = EL.EMPTY;
           woodHydration[i] += 8;
           temp[ni] -= 2;
