@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>物理沙盒 · 视觉编织场</title>
+  <style>
+    /* --- 视觉与排版（遵循用户的美学指引） --- */
+    :root{
+      --bg:#f7f8fa;
+      --panel:#ffffff;
+      --muted:#7a8691;
+      --ink:#1f2a37;
+      --accent:#2563eb;
+      --soft:#eef2ff;
+      --canvas-bg:#0f1220;
+      --glass: rgba(255,255,255,0.6);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft Yahei", "Helvetica Neue", Arial;
+      background:linear-gradient(180deg,var(--bg) 0%, #eef3ff 100%);
+      color:var(--ink);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:32px;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+    }
+
+    .stage {
+      width:1100px;
+      max-width:calc(100% - 48px);
+      display:grid;
+      grid-template-columns: 320px 1fr;
+      gap:24px;
+      align-items:start;
+    }
+
+    header {
+      grid-column: 1 / -1;
+      text-align:left;
+      margin-bottom:6px;
+    }
+
+    h1{
+      font-size:28px;
+      line-height:1;
+      margin:0 0 6px 0;
+      font-weight:700;
+      letter-spacing: -0.02em;
+    }
+    p.lead{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    /* 左侧控制栏（呼吸为留白） */
+    .controls {
+      background:var(--panel);
+      border-radius:14px;
+      padding:18px;
+      box-shadow:0 8px 30px rgba(18,30,50,0.06);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .controls h3{
+      margin:0 0 6px 0;
+      font-size:14px;
+      color:var(--ink);
+    }
+
+    .palette{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:8px;
+    }
+    .btn{
+      border:0;
+      padding:10px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      font-weight:600;
+      font-size:13px;
+      color:white;
+      box-shadow: 0 2px 8px rgba(16,24,40,0.06);
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    .btn:active{transform:scale(.99)}
+    .btn.small{font-size:12px;padding:8px;border-radius:8px}
+    .btn.toggled{outline:3px solid rgba(37,99,235,0.12); transform:translateY(-2px)}
+
+    .e-water{background:linear-gradient(180deg,#4aa3ff,#2b7ed9)}
+    .e-sand{background:linear-gradient(180deg,#f6b35b,#e08b2b)}
+    .e-stone{background:linear-gradient(180deg,#a7afb6,#7f868b)}
+    .e-wood{background:linear-gradient(180deg,#8b5a2b,#a86b3b)}
+    .e-fire{background:linear-gradient(180deg,#ff6b4a,#e0422a)}
+    .e-steam{background:linear-gradient(180deg,#dfe7ee,#ffffff); color:#1f2a37}
+    .e-ice{background:linear-gradient(180deg,#bfe7ff,#9fd6ff); color:#05314a}
+
+    .controls .row{display:flex;gap:8px;flex-wrap:wrap}
+    .label{font-size:12px;color:var(--muted);margin-bottom:6px}
+
+    .sliders{
+      background:var(--soft);
+      padding:10px;border-radius:10px;
+      display:flex;flex-direction:column;gap:8px;
+    }
+
+    /* 画布面板（主屏幕占一题当令）*/
+    .canvas-panel{
+      background:var(--panel);
+      border-radius:14px;
+      padding:14px;
+      box-shadow:0 8px 30px rgba(18,30,50,0.06);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .canvas-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+    }
+    .controls-compact{display:flex;gap:8px;align-items:center}
+    .kbd{background:#111827;color:white;padding:6px 8px;border-radius:8px;font-size:12px}
+
+    .canvas-wrap{
+      background:var(--canvas-bg);
+      border-radius:10px;
+      padding:12px;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      position:relative;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+    }
+
+    canvas#sim {
+      image-rendering: pixelated;
+      border-radius:6px;
+      background:linear-gradient(180deg,#0b0d14 0%, #101220 100%);
+      box-shadow: 0 10px 30px rgba(7,10,20,0.6);
+      display:block;
+      max-width:100%;
+      height:auto;
+    }
+
+    .legend{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      font-size:12px;color:var(--muted)
+    }
+    .legend .item{display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:8px}
+    .swatch{width:14px;height:14px;border-radius:3px;box-shadow: inset 0 -1px 0 rgba(0,0,0,0.2)}
+
+    /* 说明面板 */
+    .notes{
+      grid-column:1 / -1;
+      background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.96));
+      border-radius:12px;padding:14px;color:var(--muted);font-size:13px;
+      box-shadow:0 6px 20px rgba(16,24,40,0.04)
+    }
+
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:12px}
+    @media (max-width:980px){
+      .stage{grid-template-columns:1fr; gap:12px}
+      .controls{order:2}
+      .canvas-panel{order:1}
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" aria-labelledby="title">
+    <header>
+      <h1 id="title">物理沙盒 · 视觉编织场</h1>
+      <p class="lead">光与留白，张力与流——2D竖直切面物理沙盒。元素：水 / 沙 / 石 / 木（含植物特性） / 火 / 蒸汽 / 冰 —— 包含重力、热传导、状态变化与基本生态规律。</p>
+    </header>
+
+    <!-- 左：控制 -->
+    <aside class="controls" aria-label="控制面板">
+      <div>
+        <h3>选择元素</h3>
+        <div class="palette" role="list">
+          <button class="btn e-water" data-el="water" role="listitem">💧 水</button>
+          <button class="btn e-sand" data-el="sand" role="listitem">🌾 沙</button>
+          <button class="btn e-stone" data-el="stone" role="listitem">🪨 石头</button>
+          <button class="btn e-wood" data-el="wood" role="listitem">🪵 木材</button>
+          <button class="btn e-fire" data-el="fire" role="listitem">🔥 火焰</button>
+          <button class="btn e-steam" data-el="steam" role="listitem">☁️ 蒸汽</button>
+          <button class="btn e-ice" data-el="ice" role="listitem">❄️ 冰</button>
+        </div>
+      </div>
+
+      <div>
+        <h3>画布控制</h3>
+        <div class="row">
+          <button id="eraseBtn" class="btn small" style="background:#6b7280">橡皮</button>
+          <button id="clearBtn" class="btn small" style="background:#ef4444">清屏</button>
+          <button id="pauseBtn" class="btn small" style="background:#2563eb">暂停</button>
+        </div>
+      </div>
+
+      <div>
+        <h3>参数</h3>
+        <div class="sliders">
+          <div class="label">重力：<span id="gravityVal">0.6</span></div>
+          <input id="gravity" type="range" min="0" max="1.2" step="0.05" value="0.6">
+          <div class="label">粒子尺寸（像素）：<span id="psizeVal">4</span></div>
+          <input id="psize" type="range" min="2" max="8" step="1" value="4">
+          <div class="label">环境温度（初始）：<span id="ambientVal">20</span> °C</div>
+          <input id="ambient" type="range" min="-20" max="120" step="1" value="20">
+        </div>
+      </div>
+
+      <div>
+        <h3>提示</h3>
+        <div style="color:var(--muted);font-size:13px;line-height:1.45">
+          - 左键绘制所选元素；右键取样（按住 Shift 切换橡皮）。<br>
+          - 新元素不会覆盖已有元素，会自动在最近空白处生成。<br>
+          - 所有元素都会受重力影响落下，包括石头和木材。<br>
+          - 木材融合了植物特性，需要水分维持，遇火可燃。<br>
+          - 冰会随温度转为水或蒸汽；适当降低粒子尺寸可获得更细腻的流体表现。
+        </div>
+      </div>
+    </aside>
+
+    <!-- 右：画布 -->
+    <section class="canvas-panel" aria-label="模拟画布">
+      <div class="canvas-top">
+        <div>
+          <strong>模拟画布</strong>
+          <div style="font-size:12px;color:var(--muted)">竖直切面 · 2D 粒子格</div>
+        </div>
+        <div class="controls-compact">
+          <div class="kbd" id="modeDisplay">模式：绘制</div>
+          <div style="width:12px"></div>
+          <div class="legend" aria-hidden="true">
+            <div class="item"><div class="swatch" style="background:#4aa3ff"></div>水</div>
+            <div class="item"><div class="swatch" style="background:#f6b35b"></div>沙</div>
+            <div class="item"><div class="swatch" style="background:#a7afb6"></div>石</div>
+            <div class="item"><div class="swatch" style="background:#8b5a2b"></div>木</div>
+            <div class="item"><div class="swatch" style="background:#ff6b4a"></div>火</div>
+            <div class="item"><div class="swatch" style="background:#dfe7ee"></div>蒸汽</div>
+            <div class="item"><div class="swatch" style="background:#bfe7ff"></div>冰</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="sim" width="800" height="600" aria-label="物理沙盒画布"></canvas>
+      </div>
+    </section>
+
+    <section class="notes" aria-label="说明">
+      <strong>物理规则（摘要）</strong>
+      <ul>
+        <li>重力：所有元素都会受重力影响落下，包括石头和木材。</li>
+        <li>热力：火焰提高周围温度；温度驱动相变：冰→水→蒸汽；蒸汽遇冷凝结为水。</li>
+        <li>木材特性：融合了植物特性，需要水分维持生命，会消耗邻近水源；缺水时死亡。火焰可点燃木材。</li>
+        <li>元素放置：新元素不会覆盖已有元素，会自动在最近的空白处生成。</li>
+        <li>边界：画布四周为实物边界（最下方不可穿越，元素不能掉出画布）。</li>
+      </ul>
+    </section>
+
+    <footer>设计 · 视觉编织场 — 以留白为氧，重要则大，流动有节</footer>
+  </main>
+
+  <script>
+    /* ===========================
+       核心模拟实现（单文档）
+       - 语义清晰、注释充分
+       - 修改：所有元素都会落下
+       - 修改：新元素不会覆盖已有元素，在最近空白处生成
+       - 修改：植物特性融合进木材元素
+       ============================ */
+
+    /* -------- 模型/参数 -------- */
+    const canvas = document.getElementById('sim');
+    const ctx = canvas.getContext('2d');
+
+    // 动态参数（会在 UI 改变时更新）
+    let PARAM = {
+      particleSize: 4,         // 像素
+      gravity: 0.6,            // 重力强度（影响下落概率）
+      ambientTemp: 20,         // 初始环境温度（°C）
+      fpsLimit: 60
+    };
+
+    // 元素类型
+    const EL = {
+      EMPTY: 0, SAND: 1, WATER: 2, STONE: 3, WOOD: 4,
+      FIRE: 5, STEAM: 6, ICE: 7
+    };
+
+    const COLORS = {
+      [EL.EMPTY]: '#0f1220',
+      [EL.SAND]: '#f6b35b',
+      [EL.WATER]: '#4aa3ff',
+      [EL.STONE]: '#a7afb6',
+      [EL.WOOD]: '#8b5a2b',
+      [EL.FIRE]: '#ff6b4a',
+      [EL.STEAM]: '#dfe7ee',
+      [EL.ICE]: '#bfe7ff'
+    };
+
+    // 网格（列 x 行）
+    let COLS = Math.floor(canvas.width / PARAM.particleSize);
+    let ROWS = Math.floor(canvas.height / PARAM.particleSize);
+
+    // 插值函数（安全）
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v|0));
+
+    // 网格数组： grid[c][r]
+    let grid = [];
+    let temp = [];            // 温度（°C）栅格
+    let fireLife = [];        // 火焰生命周期
+    let woodHydration = [];   // 木材水分值（融合植物特性）
+
+    function allocGrid() {
+      COLS = Math.max(8, Math.floor(canvas.width / PARAM.particleSize));
+      ROWS = Math.max(8, Math.floor(canvas.height / PARAM.particleSize));
+      grid = new Array(COLS);
+      temp = new Array(COLS);
+      fireLife = new Array(COLS);
+      woodHydration = new Array(COLS);
+      for (let x = 0; x < COLS; x++) {
+        grid[x] = new Array(ROWS).fill(EL.EMPTY);
+        temp[x] = new Array(ROWS).fill(PARAM.ambientTemp);
+        fireLife[x] = new Array(ROWS).fill(0);
+        woodHydration[x] = new Array(ROWS).fill(0);
+      }
+    }
+
+    allocGrid();
+
+    /* -------- UI 连接 -------- */
+    const buttons = document.querySelectorAll('.palette .btn');
+    let current = EL.SAND;
+    buttons.forEach(b=>{
+      b.addEventListener('click', ()=>{
+        buttons.forEach(x=>x.classList.remove('toggled'));
+        b.classList.add('toggled');
+        const key = b.dataset.el;
+        const map = {sand:EL.SAND, water:EL.WATER, stone:EL.STONE, wood:EL.WOOD, fire:EL.FIRE, steam:EL.STEAM, ice:EL.ICE};
+        current = map[key] ?? EL.SAND;
+      });
+    });
+    // 设置默认
+    document.querySelector('.btn[data-el="sand"]').classList.add('toggled');
+
+    // 控制按钮
+    const eraseBtn = document.getElementById('eraseBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const modeDisplay = document.getElementById('modeDisplay');
+
+    let eraseMode = false;
+    let paused = false;
+    eraseBtn.addEventListener('click', ()=>{ eraseMode = !eraseMode; modeDisplay.textContent = eraseMode ? '模式：橡皮' : '模式：绘制'; eraseBtn.style.opacity = eraseMode ? '1' : '0.7' });
+    clearBtn.addEventListener('click', ()=>{ allocGrid(); draw(); });
+    pauseBtn.addEventListener('click', ()=>{ paused = !paused; pauseBtn.textContent = paused ? '继续' : '暂停'; });
+
+    // sliders
+    const gravitySlider = document.getElementById('gravity');
+    const psizeSlider = document.getElementById('psize');
+    const ambientSlider = document.getElementById('ambient');
+    const gravityVal = document.getElementById('gravityVal');
+    const psizeVal = document.getElementById('psizeVal');
+    const ambientVal = document.getElementById('ambientVal');
+
+    gravitySlider.value = PARAM.gravity; gravityVal.textContent = PARAM.gravity;
+    psizeSlider.value = PARAM.particleSize; psizeVal.textContent = PARAM.particleSize;
+    ambientSlider.value = PARAM.ambientTemp; ambientVal.textContent = PARAM.ambientTemp;
+
+    gravitySlider.addEventListener('input', e=>{ PARAM.gravity = parseFloat(e.target.value); gravityVal.textContent = PARAM.gravity; });
+    ambientSlider.addEventListener('input', e=>{ PARAM.ambientTemp = parseFloat(e.target.value); ambientVal.textContent = PARAM.ambientTemp; });
+    psizeSlider.addEventListener('input', e=>{
+      PARAM.particleSize = parseInt(e.target.value);
+      psizeVal.textContent = PARAM.particleSize;
+      allocGrid();
+      draw();
+    });
+
+    /* -------- 鼠标绘制交互 -------- */
+    let drawing = false;
+    let last = null;
+    const canvasRect = () => canvas.getBoundingClientRect();
+
+    function toCell(clientX, clientY) {
+      const rect = canvasRect();
+      const cx = clientX - rect.left;
+      const cy = clientY - rect.top;
+      const col = clamp(Math.floor(cx / PARAM.particleSize), 0, COLS - 1);
+      const row = clamp(Math.floor(cy / PARAM.particleSize), 0, ROWS - 1);
+      return {col,row};
+    }
+
+    canvas.addEventListener('pointerdown', e=>{
+      drawing = true;
+      canvas.setPointerCapture(e.pointerId);
+      if (e.button === 2) { // right-click sample
+        const {col,row} = toCell(e.clientX, e.clientY);
+        current = grid[col][row] || current;
+        // find button and toggle
+        const reverse = { [EL.SAND]:'sand', [EL.WATER]:'water', [EL.STONE]:'stone', [EL.WOOD]:'wood', [EL.FIRE]:'fire', [EL.STEAM]:'steam', [EL.ICE]:'ice' };
+        const key = reverse[current];
+        if (key){
+          buttons.forEach(x=>x.classList.remove('toggled'));
+          const btn = document.querySelector(`.btn[data-el="${key}"]`);
+          if (btn) btn.classList.add('toggled');
+        }
+      } else {
+        handlePaint(e);
+      }
+    });
+    canvas.addEventListener('pointermove', e=>{
+      if (drawing) handlePaint(e);
+    });
+    canvas.addEventListener('pointerup', e=>{
+      drawing = false;
+      canvas.releasePointerCapture?.(e.pointerId);
+      last = null;
+    });
+    canvas.addEventListener('contextmenu', e=> e.preventDefault());
+
+    function handlePaint(e){
+      const {col,row} = toCell(e.clientX, e.clientY);
+      if (eraseMode || e.shiftKey) {
+        paintBlock(col,row,EL.EMPTY);
+      } else {
+        paintBlock(col,row,current);
+      }
+      // draw line from last to avoid gaps
+      if (last){
+        linePaint(last.col,last.row,col,row,current,(eraseMode|| e.shiftKey));
+      }
+      last = {col,row};
+    }
+
+    // 寻找最近的空白位置
+    function findNearestEmpty(cx, cy) {
+      // 如果目标位置已经是空的，直接返回
+      if (grid[cx][cy] === EL.EMPTY) {
+        return {x: cx, y: cy};
+      }
+      
+      // 使用BFS寻找最近的空白位置
+      const queue = [{x: cx, y: cy, dist: 0}];
+      const visited = new Set();
+      visited.add(`${cx},${cy}`);
+      
+      const directions = [
+        {dx: 0, dy: 1},  // 下
+        {dx: 1, dy: 0},  // 右
+        {dx: 0, dy: -1}, // 上
+        {dx: -1, dy: 0}, // 左
+        {dx: 1, dy: 1},  // 右下
+        {dx: -1, dy: 1}, // 左下
+        {dx: 1, dy: -1}, // 右上
+        {dx: -1, dy: -1} // 左上
+      ];
+      
+      while (queue.length > 0) {
+        const {x, y} = queue.shift();
+        
+        // 检查是否是空白位置
+        if (grid[x][y] === EL.EMPTY) {
+          return {x, y};
+        }
+        
+        // 添加相邻位置到队列
+        for (const {dx, dy} of directions) {
+          const nx = x + dx;
+          const ny = y + dy;
+          const key = `${nx},${ny}`;
+          
+          if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !visited.has(key)) {
+            visited.add(key);
+            queue.push({x: nx, y: ny});
+          }
+        }
+      }
+      
+      // 如果没有找到空白位置，返回原始位置
+      return {x: cx, y: cy};
+    }
+
+    function paintBlock(cx,cy,el){
+      // 如果是橡皮模式，直接清除
+      if (el === EL.EMPTY) {
+        const r = Math.max(0, Math.floor(PARAM.particleSize/2));
+        for (let dx=-r; dx<=r; dx++){
+          for (let dy=-r; dy<=r; dy++){
+            const x = cx+dx, y = cy+dy;
+            if (x>=0 && x<COLS && y>=0 && y<ROWS){
+              grid[x][y] = EL.EMPTY;
+              fireLife[x][y] = 0;
+              woodHydration[x][y] = 0;
+            }
+          }
+        }
+        return;
+      }
+      
+      // 否则，寻找最近的空白位置放置元素
+      const r = Math.max(0, Math.floor(PARAM.particleSize/2));
+      for (let dx=-r; dx<=r; dx++){
+        for (let dy=-r; dy<=r; dy++){
+          const x = cx+dx, y = cy+dy;
+          if (x>=0 && x<COLS && y>=0 && y<ROWS){
+            // 寻找最近的空白位置
+            const emptyPos = findNearestEmpty(x, y);
+            if (emptyPos.x >= 0 && emptyPos.x < COLS && emptyPos.y >= 0 && emptyPos.y < ROWS) {
+              grid[emptyPos.x][emptyPos.y] = el;
+              if (el === EL.FIRE) fireLife[emptyPos.x][emptyPos.y] = 120;
+              if (el === EL.WOOD) woodHydration[emptyPos.x][emptyPos.y] = 60; // 初始水分
+              if (el === EL.ICE) temp[emptyPos.x][emptyPos.y] = Math.min(temp[emptyPos.x][emptyPos.y], 0);
+              if (el === EL.WATER) temp[emptyPos.x][emptyPos.y] = Math.max(temp[emptyPos.x][emptyPos.y], PARAM.ambientTemp);
+            }
+          }
+        }
+      }
+    }
+
+    function linePaint(x0,y0,x1,y1,el,isErase=false){
+      const dx = Math.abs(x1-x0), dy = Math.abs(y1-y0);
+      const sx = x0<x1 ? 1 : -1, sy = y0<y1 ? 1 : -1;
+      let err = dx-dy;
+      let x=x0,y=y0;
+      while(true){
+        paintBlock(x,y,isErase?EL.EMPTY:el);
+        if (x===x1 && y===y1) break;
+        const e2 = 2*err;
+        if (e2>-dy){ err-=dy; x+=sx; }
+        if (e2<dx){ err+=dx; y+=sy; }
+      }
+    }
+
+    /* -------- 物理规则实现 -------- */
+
+    // 温度阈值（近似模型）
+    const MELT_TEMP = 2;     // 冰→水（°C）
+    const BOIL_TEMP = 90;    // 水→蒸汽（°C）
+    const CONDENSE_TEMP = 50;// 蒸汽→水（°C）
+
+    // 每帧更新（扫描从下到上：重力）
+    function step() {
+      // 1) 温度扩散与衰减（基础环境回归）
+      const ambient = PARAM.ambientTemp;
+      // diffuse: simple kernel; create new temp buffer to avoid intra-frame effects
+      const newTemp = new Array(COLS);
+      for (let x=0;x<COLS;x++){
+        newTemp[x] = new Array(ROWS);
+        for (let y=0;y<ROWS;y++){
+          newTemp[x][y] = temp[x][y];
+        }
+      }
+      for (let x=0;x<COLS;x++){
+        for (let y=0;y<ROWS;y++){
+          // diffusion with neighbors
+          let t = temp[x][y]*0.6;
+          let count = 0.6;
+          const nbs = [[1,0],[-1,0],[0,1],[0,-1]];
+          for (const [dx,dy] of nbs){
+            const nx=x+dx, ny=y+dy;
+            if (nx>=0 && nx<COLS && ny>=0 && ny<ROWS){
+              t += temp[nx][ny]*0.1;
+              count += 0.1;
+            }
+          }
+          // relax towards ambient slightly
+          t = t/count;
+          t += (ambient - t) * 0.004; // slow ambient blending
+          newTemp[x][y] = t;
+        }
+      }
+      // swap temp
+      for (let x=0;x<COLS;x++) for (let y=0;y<ROWS;y++) temp[x][y] = newTemp[x][y];
+
+      // 2) main element updates: from bottom-1 up to 0
+      for (let y = ROWS - 2; y >= 0; y--) {
+        for (let x = 0; x < COLS; x++) {
+          const el = grid[x][y];
+          if (el === EL.EMPTY) continue;
+
+          switch (el) {
+            case EL.SAND:
+              updateSand(x,y);
+              break;
+            case EL.WATER:
+              updateWater(x,y);
+              break;
+            case EL.ICE:
+              updateIce(x,y);
+              break;
+            case EL.FIRE:
+              updateFire(x,y);
+              break;
+            case EL.STEAM:
+              updateSteam(x,y);
+              break;
+            case EL.STONE:
+              updateStone(x,y);
+              break;
+            case EL.WOOD:
+              updateWood(x,y);
+              break;
+            default:
+              break;
+          }
+        }
+      }
+
+      // bottom row interactions (y = ROWS - 1)
+      for (let x=0;x<COLS;x++){
+        if (grid[x][ROWS-1] === EL.FIRE){
+          fireLife[x][ROWS-1] -= 4;
+          if (fireLife[x][ROWS-1] <= 0) grid[x][ROWS-1] = EL.EMPTY;
+        }
+      }
+    }
+
+    /* --- 元素具体逻辑 --- */
+
+    function swap(x1,y1,x2,y2){
+      const t = grid[x1][y1];
+      grid[x1][y1] = grid[x2][y2];
+      grid[x2][y2] = t;
+      // swap temp for continuity
+      const tt = temp[x1][y1];
+      temp[x1][y1] = temp[x2][y2];
+      temp[x2][y2] = tt;
+      // swap fireLife and woodHydration as well
+      const f = fireLife[x1][y1]; fireLife[x1][y1] = fireLife[x2][y2]; fireLife[x2][y2] = f;
+      const wh = woodHydration[x1][y1]; woodHydration[x1][y1] = woodHydration[x2][y2]; woodHydration[x2][y2] = wh;
+    }
+
+    function canFallInto(x,y){
+      if (y >= ROWS) return false;
+      return grid[x][y] === EL.EMPTY || grid[x][y] === EL.STEAM;
+    }
+
+    function updateSand(x,y){
+      if (y+1 < ROWS){
+        const below = grid[x][y+1];
+        if (below === EL.EMPTY || below === EL.STEAM){
+          swap(x,y,x,y+1);
+          return;
+        }
+        if (below === EL.WATER){
+          swap(x,y,x,y+1);
+          return;
+        }
+        // diagonal fallback
+        const dirs = Math.random() > 0.5 ? [1,-1] : [-1,1];
+        for (const d of dirs){
+          const nx = x + d;
+          if (nx>=0 && nx<COLS && y+1<ROWS && (grid[nx][y+1] === EL.EMPTY || grid[nx][y+1] === EL.STEAM)){
+            swap(x,y,nx,y+1); return;
+          }
+        }
+      }
+    }
+
+    function updateWater(x,y){
+      if (y+1 < ROWS && (grid[x][y+1] === EL.EMPTY || grid[x][y+1] === EL.STEAM)){
+        swap(x,y,x,y+1); return;
+      }
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      if (y+1 < ROWS){
+        if (x+dir>=0 && x+dir<COLS && (grid[x+dir][y+1] === EL.EMPTY || grid[x+dir][y+1] === EL.STEAM)){
+          swap(x,y,x+dir,y+1); return;
+        }
+        if (x-dir>=0 && x-dir<COLS && (grid[x-dir][y+1] === EL.EMPTY || grid[x-dir][y+1] === EL.STEAM)){
+          swap(x,y,x-dir,y+1); return;
+        }
+      }
+      if (Math.random()>0.4){
+        if (x+1<COLS && grid[x+1][y] === EL.EMPTY){ swap(x,y,x+1,y); return; }
+      } else {
+        if (x-1>=0 && grid[x-1][y] === EL.EMPTY){ swap(x,y,x-1,y); return; }
+      }
+      if (temp[x][y] >= BOIL_TEMP && Math.random() < 0.12){
+        grid[x][y] = EL.STEAM;
+        temp[x][y] += 8;
+      }
+    }
+
+    function updateIce(x,y){
+      if (temp[x][y] >= MELT_TEMP){
+        grid[x][y] = EL.WATER;
+        return;
+      }
+      if (y+1 < ROWS){
+        const below = grid[x][y+1];
+        if (below === EL.EMPTY || below === EL.STEAM){
+          swap(x,y,x,y+1); return;
+        }
+        if (below === EL.WATER){
+          swap(x,y,x,y+1); return;
+        }
+        const dirs = Math.random() > 0.5 ? [1,-1] : [-1,1];
+        for (const d of dirs){
+          const nx = x + d;
+          if (nx>=0 && nx<COLS && y+1<ROWS && (grid[nx][y+1] === EL.EMPTY || grid[nx][y+1] === EL.STEAM)){
+            swap(x,y,nx,y+1); return;
+          }
+        }
+      }
+    }
+
+    function updateSteam(x,y){
+      if (y-1 >= 0 && grid[x][y-1] === EL.EMPTY){
+        swap(x,y,x,y-1); return;
+      }
+      if (Math.random() < 0.25){
+        const dir = Math.random()>0.5?1:-1;
+        const nx = x+dir;
+        if (nx>=0 && nx<COLS && grid[nx][y] === EL.EMPTY){ swap(x,y,nx,y); return; }
+      }
+      if (temp[x][y] <= CONDENSE_TEMP && Math.random() < 0.05){
+        grid[x][y] = EL.WATER;
+        return;
+      }
+    }
+
+    function updateFire(x,y){
+      fireLife[x][y] -= 2;
+      temp[x][y] += 12;
+      const neighbors = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+      for (const [dx,dy] of neighbors){
+        const nx=x+dx, ny=y+dy;
+        if (nx>=0 && nx<COLS && ny>=0 && ny<ROWS){
+          temp[nx][ny] += 6;
+        }
+      }
+      const topFactor = (y < ROWS*0.15) ? 0.15 : 0.03;
+      if (fireLife[x][y] <= 0 || Math.random() < topFactor){
+        grid[x][y] = EL.EMPTY; fireLife[x][y]=0; return;
+      }
+
+      if (y-1 >= 0 && grid[x][y-1] === EL.EMPTY){
+        grid[x][y-1] = EL.FIRE; fireLife[x][y-1] = Math.max(20, fireLife[x][y]-8);
+        grid[x][y] = EL.EMPTY; fireLife[x][y]=0;
+        return;
+      }
+
+      let sideChance = (y < ROWS*0.15) ? 0.08 : 0.28;
+      if (Math.random() < sideChance){
+        const dir = Math.random()>0.5?1:-1;
+        const nx = x+dir;
+        if (nx>=0 && nx<COLS && grid[nx][y] === EL.EMPTY){
+          grid[nx][y] = EL.FIRE; fireLife[nx][y] = Math.max(20, fireLife[x][y]-10);
+          grid[x][y] = EL.EMPTY; fireLife[x][y]=0;
+          return;
+        }
+      }
+
+      for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){
+        const nx = x+dx, ny = y+dy;
+        if (nx<0||nx>=COLS||ny<0||ny>=ROWS) continue;
+        const nearby = grid[nx][ny];
+        if (nearby === EL.WATER && Math.random() < 0.18){
+          grid[nx][ny] = EL.STEAM;
+          temp[nx][ny] += 18;
+        } else if (nearby === EL.WOOD && Math.random() < 0.25){
+          grid[nx][ny] = EL.FIRE; fireLife[nx][ny] = 140;
+        } else if (nearby === EL.STONE){
+          temp[nx][ny] += 6;
+        } else {
+          if (nearby === EL.EMPTY && Math.random() < 0.02){
+            grid[nx][ny] = EL.FIRE; fireLife[nx][ny] = 50;
+          }
+        }
+      }
+    }
+
+    // 石头现在也会下落
+    function updateStone(x,y){
+      if (y+1 < ROWS){
+        const below = grid[x][y+1];
+        if (below === EL.EMPTY || below === EL.STEAM){
+          swap(x,y,x,y+1);
+          return;
+        }
+        // 石头比水重，可以沉入水中
+        if (below === EL.WATER){
+          swap(x,y,x,y+1);
+          return;
+        }
+        // diagonal fallback
+        const dirs = Math.random() > 0.5 ? [1,-1] : [-1,1];
+        for (const d of dirs){
+          const nx = x + d;
+          if (nx>=0 && nx<COLS && y+1<ROWS && (grid[nx][y+1] === EL.EMPTY || grid[nx][y+1] === EL.STEAM || grid[nx][y+1] === EL.WATER)){
+            swap(x,y,nx,y+1); return;
+          }
+        }
+      }
+    }
+
+    // 木材融合了植物特性
+    function updateWood(x,y){
+      // 木材消耗水分
+      woodHydration[x][y] = woodHydration[x][y] - 0.02;
+      
+      // 尝试吸收邻近水分
+      const nbs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+      for (const [dx,dy] of nbs){
+        const nx = x+dx, ny = y+dy;
+        if (nx<0||nx>=COLS||ny<0||ny>=ROWS) continue;
+        if (grid[nx][ny] === EL.WATER && Math.random() < 0.35){
+          grid[nx][ny] = EL.EMPTY;
+          woodHydration[x][y] += 8;
+          temp[nx][ny] -= 2;
+          break;
+        }
+      }
+      
+      // 如果水分过低，木材死亡（变为空）
+      if (woodHydration[x][y] <= 0){
+        grid[x][y] = EL.EMPTY;
+        woodHydration[x][y] = 0;
+        return;
+      }
+      
+      // 木材也会下落
+      if (y+1 < ROWS){
+        const below = grid[x][y+1];
+        if (below === EL.EMPTY || below === EL.STEAM){
+          swap(x,y,x,y+1);
+          return;
+        }
+        if (below === EL.WATER){
+          swap(x,y,x,y+1);
+          return;
+        }
+        // diagonal fallback
+        const dirs = Math.random() > 0.5 ? [1,-1] : [-1,1];
+        for (const d of dirs){
+          const nx = x + d;
+          if (nx>=0 && nx<COLS && y+1<ROWS && (grid[nx][y+1] === EL.EMPTY || grid[nx][y+1] === EL.STEAM || grid[nx][y+1] === EL.WATER)){
+            swap(x,y,nx,y+1); return;
+          }
+        }
+      }
+      
+      // 如果附近有火，可能被点燃
+      for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx = x+dx, ny = y+dy;
+        if (nx<0||nx>=COLS||ny<0||ny>=ROWS) continue;
+        if (grid[nx][ny] === EL.FIRE && Math.random() < 0.35){
+          grid[x][y] = EL.FIRE; fireLife[x][y] = 100; return;
+        }
+      }
+    }
+
+    /* -------- 绘制 -------- */
+    function draw(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      const ps = PARAM.particleSize;
+      ctx.fillStyle = '#0b0d14';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      for (let x=0;x<COLS;x++){
+        for (let y=0;y<ROWS;y++){
+          const el = grid[x][y];
+          if (el === EL.EMPTY) continue;
+          let col = COLORS[el] ?? '#ffffff';
+          if (el === EL.FIRE){
+            const life = clamp(fireLife[x][y],0,160);
+            const t = life/160;
+            const r = Math.floor(255 * (0.6 + 0.4*t));
+            const g = Math.floor(80 * (0.4 + 0.6*t));
+            const b = Math.floor(30 * (0.1 + 0.1*t));
+            col = `rgb(${r},${g},${b})`;
+          } else if (el === EL.ICE){
+            const tt = clamp((temp[x][y]+20)/120, 0, 1);
+            const mix = Math.floor(200 + 55*(1-tt));
+            col = `rgb(${mix}, ${230}, ${255})`;
+          } else if (el === EL.WATER){
+            const tt = clamp((temp[x][y]-PARAM.ambientTemp)/60, -1, 1);
+            if (tt > 0.6) col = '#a7e0ff';
+            else if (tt < -0.5) col = '#2a8bd6';
+            else col = COLORS[el];
+          } else if (el === EL.WOOD){
+            // 根据水分显示不同颜色
+            const h = clamp(woodHydration[x][y]/80, 0, 1);
+            const r = Math.floor(139 * (0.7 + 0.3*(1-h)));
+            const g = Math.floor(90 * h + 50*(1-h));
+            const b = Math.floor(43 * (0.5 + 0.5*h));
+            col = `rgb(${r},${g},${b})`;
+          } else {
+            col = COLORS[el];
+          }
+
+          ctx.fillStyle = col;
+          ctx.fillRect(x*ps, y*ps, ps, ps);
+        }
+      }
+    }
+
+    /* -------- 主循环 -------- */
+    let lastTime = performance.now();
+    function tick(time){
+      if (!paused){
+        if (time - lastTime > (1000 / PARAM.fpsLimit)){
+          step();
+          draw();
+          lastTime = time;
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    /* -------- 初始化：小演示，添加一些 stones 于底部边界（可注释） -------- */
+    (function seed(){
+      const base = ROWS - 1;
+      for (let x=0;x<COLS;x+=2){
+        if (Math.random() < 0.6){
+          grid[x][base] = EL.STONE;
+          temp[x][base] = PARAM.ambientTemp;
+        }
+      }
+    })();
+
+    /* -------- 适配窗口和高DPI -------- */
+    function resizeCanvas(){
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      COLS = Math.floor(canvas.width / (PARAM.particleSize * dpr));
+      ROWS = Math.floor(canvas.height / (PARAM.particleSize * dpr));
+      allocGrid();
+      draw();
+    }
+
+    function fitCanvasToContainer(){
+      const wrap = document.getElementById('canvasWrap');
+    }
+    fitCanvasToContainer();
+
+    document.addEventListener('selectstart', e => { if (e.target === canvas) e.preventDefault(); });
+
+    window._sim = { grid, temp, EL, COLORS, PARAM, draw };
+  </script>
+</body>
+</html>
