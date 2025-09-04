@@ -261,7 +261,7 @@
                 </div>
                 <div class="rule-card">
                     <h4>🔥 火焰</h4>
-                    <p>向上燃烧，可点燃木材，使水蒸发，有生命周期</p>
+                    <p>向上燃烧，可点燃木材，使水蒸发，有生命周期，顶部会更快熄灭</p>
                 </div>
                 <div class="rule-card">
                     <h4>☁️ 蒸汽</h4>
@@ -324,10 +324,14 @@
         let isMouseDown = false;
         let lastX, lastY;
 
+        // 火焰生命周期跟踪
+        let fireLifeGrid = [];
+
         // 初始化网格
         let grid = [];
         for (let i = 0; i < config.gridWidth; i++) {
             grid[i] = new Array(config.gridHeight).fill(ELEMENT_TYPES.EMPTY);
+            fireLifeGrid[i] = new Array(config.gridHeight).fill(0);
         }
 
         // 获取Canvas元素
@@ -346,6 +350,7 @@
         document.getElementById('clearButton').addEventListener('click', () => {
             for (let i = 0; i < config.gridWidth; i++) {
                 grid[i] = new Array(config.gridHeight).fill(ELEMENT_TYPES.EMPTY);
+                fireLifeGrid[i] = new Array(config.gridHeight).fill(0);
             }
             drawGrid();
         });
@@ -436,6 +441,10 @@
                         if (nx >= 0 && nx < config.gridWidth && ny >= 0 && ny < config.gridHeight) {
                             if (Math.random() > 0.3) { // 随机填充以创建更自然的效果
                                 grid[nx][ny] = currentElement;
+                                // 如果是火焰，初始化生命周期
+                                if (currentElement === ELEMENT_TYPES.FIRE) {
+                                    fireLifeGrid[nx][ny] = 100; // 初始生命值
+                                }
                             }
                         }
                     }
@@ -540,11 +549,23 @@
             }
         }
 
-        // 火焰物理更新
+        // 火焰物理更新 - 优化版本
         function updateFire(x, y) {
-            // 火焰有生命周期，随机消失
-            if (Math.random() < 0.05) {
+            // 减少火焰生命值
+            fireLifeGrid[x][y] -= 2;
+            
+            // 计算消失概率 - 顶部火焰消失更快
+            let disappearChance = 0.05;
+            if (y < 50) { // 顶部区域
+                disappearChance = 0.3; // 30%的消失概率
+            } else if (y < 100) { // 接近顶部区域
+                disappearChance = 0.15; // 15%的消失概率
+            }
+            
+            // 如果生命值耗尽或随机消失
+            if (fireLifeGrid[x][y] <= 0 || Math.random() < disappearChance) {
                 grid[x][y] = ELEMENT_TYPES.EMPTY;
+                fireLifeGrid[x][y] = 0;
                 return;
             }
             
@@ -552,15 +573,24 @@
             if (y - 1 >= 0 && grid[x][y - 1] === ELEMENT_TYPES.EMPTY) {
                 grid[x][y] = ELEMENT_TYPES.EMPTY;
                 grid[x][y - 1] = ELEMENT_TYPES.FIRE;
+                fireLifeGrid[x][y] = 0;
+                fireLifeGrid[x][y - 1] = fireLifeGrid[x][y - 1] || 80; // 传递生命值，但减少
                 return;
             }
             
-            // 随机侧向移动
-            if (Math.random() < 0.3) {
+            // 随机侧向移动 - 顶部区域侧向移动概率降低
+            let sideMoveChance = 0.3;
+            if (y < 50) {
+                sideMoveChance = 0.1; // 顶部区域侧向移动概率降低
+            }
+            
+            if (Math.random() < sideMoveChance) {
                 const dir = Math.random() > 0.5 ? 1 : -1;
                 if (x + dir >= 0 && x + dir < config.gridWidth && grid[x + dir][y] === ELEMENT_TYPES.EMPTY) {
                     grid[x][y] = ELEMENT_TYPES.EMPTY;
                     grid[x + dir][y] = ELEMENT_TYPES.FIRE;
+                    fireLifeGrid[x][y] = 0;
+                    fireLifeGrid[x + dir][y] = fireLifeGrid[x][y] || 70;
                     return;
                 }
             }
@@ -578,10 +608,21 @@
                         // 点燃木材
                         else if (grid[nx][ny] === ELEMENT_TYPES.WOOD && Math.random() < 0.1) {
                             grid[nx][ny] = ELEMENT_TYPES.FIRE;
+                            fireLifeGrid[nx][ny] = 100; // 新火焰有完整生命值
                         }
-                        // 火焰扩散
-                        else if (grid[nx][ny] === ELEMENT_TYPES.EMPTY && Math.random() < 0.05) {
-                            grid[nx][ny] = ELEMENT_TYPES.FIRE;
+                        // 火焰扩散 - 顶部区域扩散概率降低
+                        else if (grid[nx][ny] === ELEMENT_TYPES.EMPTY) {
+                            let spreadChance = 0.05;
+                            if (y < 50) {
+                                spreadChance = 0.01; // 顶部区域扩散概率大幅降低
+                            } else if (y < 100) {
+                                spreadChance = 0.03; // 接近顶部区域扩散概率降低
+                            }
+                            
+                            if (Math.random() < spreadChance) {
+                                grid[nx][ny] = ELEMENT_TYPES.FIRE;
+                                fireLifeGrid[nx][ny] = 60; // 扩散的火焰生命值较低
+                            }
                         }
                     }
                 }
@@ -623,7 +664,17 @@
                 for (let y = 0; y < config.gridHeight; y++) {
                     const element = grid[x][y];
                     if (element !== ELEMENT_TYPES.EMPTY) {
-                        ctx.fillStyle = ELEMENT_COLORS[element];
+                        // 火焰根据生命值调整颜色
+                        if (element === ELEMENT_TYPES.FIRE) {
+                            const lifePercent = fireLifeGrid[x][y] / 100;
+                            const r = Math.floor(231 * lifePercent);
+                            const g = Math.floor(76 * lifePercent);
+                            const b = Math.floor(60 * lifePercent);
+                            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                        } else {
+                            ctx.fillStyle = ELEMENT_COLORS[element];
+                        }
+                        
                         ctx.fillRect(
                             x * config.particleSize, 
                             y * config.particleSize, 
