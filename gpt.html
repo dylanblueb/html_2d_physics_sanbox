@@ -232,7 +232,7 @@
           - 左键绘制所选元素；右键取样（按住 Shift 切换橡皮）。<br>
           - 新元素不会覆盖已有元素，会自动在最近空白处生成。<br>
           - 所有元素都会受重力影响落下，包括石头和木材。<br>
-          - 木材融合了植物特性，需要水分维持，遇火可燃。<br>
+          - 木材融合了植物特性，需要水分维持，会消耗邻近水源；缺水时死亡。火焰可点燃木材。<br>
           - 冰会随温度转为水或蒸汽；适当降低粒子尺寸可获得更细腻的流体表现。
         </div>
       </div>
@@ -329,6 +329,7 @@
     let temp = [];            // 温度（°C）栅格
     let fireLife = [];        // 火焰生命周期
     let woodHydration = [];   // 木材水分值（融合植物特性）
+    let woodWaterConsumed = []; // 木材累积消耗水量
 
     function allocGrid() {
       COLS = Math.max(8, Math.floor(canvas.width / PARAM.particleSize));
@@ -337,11 +338,13 @@
       temp = new Array(COLS);
       fireLife = new Array(COLS);
       woodHydration = new Array(COLS);
+      woodWaterConsumed = new Array(COLS);
       for (let x = 0; x < COLS; x++) {
         grid[x] = new Array(ROWS).fill(EL.EMPTY);
         temp[x] = new Array(ROWS).fill(PARAM.ambientTemp);
         fireLife[x] = new Array(ROWS).fill(0);
         woodHydration[x] = new Array(ROWS).fill(0);
+        woodWaterConsumed[x] = new Array(ROWS).fill(0);
       }
     }
 
@@ -510,6 +513,7 @@
               grid[x][y] = EL.EMPTY;
               fireLife[x][y] = 0;
               woodHydration[x][y] = 0;
+              woodWaterConsumed[x][y] = 0;
             }
           }
         }
@@ -527,7 +531,10 @@
             if (emptyPos.x >= 0 && emptyPos.x < COLS && emptyPos.y >= 0 && emptyPos.y < ROWS) {
               grid[emptyPos.x][emptyPos.y] = el;
               if (el === EL.FIRE) fireLife[emptyPos.x][emptyPos.y] = 120;
-              if (el === EL.WOOD) woodHydration[emptyPos.x][emptyPos.y] = 60; // 初始水分
+              if (el === EL.WOOD) {
+                woodHydration[emptyPos.x][emptyPos.y] = 60; // 初始水分
+                woodWaterConsumed[emptyPos.x][emptyPos.y] = 0; // 初始累积消耗水量为0
+              }
               if (el === EL.ICE) temp[emptyPos.x][emptyPos.y] = Math.min(temp[emptyPos.x][emptyPos.y], 0);
               if (el === EL.WATER) temp[emptyPos.x][emptyPos.y] = Math.max(temp[emptyPos.x][emptyPos.y], PARAM.ambientTemp);
             }
@@ -647,6 +654,8 @@
       // swap fireLife and woodHydration as well
       const f = fireLife[x1][y1]; fireLife[x1][y1] = fireLife[x2][y2]; fireLife[x2][y2] = f;
       const wh = woodHydration[x1][y1]; woodHydration[x1][y1] = woodHydration[x2][y2]; woodHydration[x2][y2] = wh;
+      // swap woodWaterConsumed
+      const wc = woodWaterConsumed[x1][y1]; woodWaterConsumed[x1][y1] = woodWaterConsumed[x2][y2]; woodWaterConsumed[x2][y2] = wc;
     }
 
     function canFallInto(x,y){
@@ -815,11 +824,13 @@
 
     // 木材融合了植物特性
     function updateWood(x,y){
-      // 木材消耗水分
-      woodHydration[x][y] = woodHydration[x][y] - 0.02;
+      // 木材消耗水分（调整为原来的10%）
+      const waterConsumed = 0.002;
+      woodHydration[x][y] = woodHydration[x][y] - waterConsumed;
       
       // 尝试吸收邻近水分
       const nbs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+      let waterAbsorbed = 0;
       for (const [dx,dy] of nbs){
         const nx = x+dx, ny = y+dy;
         if (nx<0||nx>=COLS||ny<0||ny>=ROWS) continue;
@@ -827,14 +838,49 @@
           grid[nx][ny] = EL.EMPTY;
           woodHydration[x][y] += 8;
           temp[nx][ny] -= 2;
+          waterAbsorbed++;
           break;
         }
+      }
+      
+      // 根据消耗的水量生长（每消耗1单位水，生长2个新木材）
+      woodWaterConsumed[x][y] += waterConsumed;
+      
+      // 当累积消耗的水量达到1单位时，生长2个新木材
+      if (woodWaterConsumed[x][y] >= 1) {
+        // 获取所有可能的生长位置
+        const growDirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+        const possiblePositions = [];
+        
+        for (const [dx,dy] of growDirs) {
+          const nx = x+dx, ny = y+dy;
+          if (nx>=0 && nx<COLS && ny>=0 && ny<ROWS && grid[nx][ny] === EL.EMPTY) {
+            possiblePositions.push({x: nx, y: ny});
+          }
+        }
+        
+        // 随机选择位置生长
+        if (possiblePositions.length > 0) {
+          const shuffled = [...possiblePositions].sort(() => Math.random() - 0.5);
+          const growCount = Math.min(2, shuffled.length); // 生长2个新木材
+          
+          for (let i = 0; i < growCount; i++) {
+            const pos = shuffled[i];
+            grid[pos.x][pos.y] = EL.WOOD;
+            woodHydration[pos.x][pos.y] = woodHydration[x][y] * 0.8; // 新木材的水分是母体的80%
+            woodWaterConsumed[pos.x][pos.y] = 0; // 新木材的累积消耗水量为0
+          }
+        }
+        
+        // 重置累积消耗的水量
+        woodWaterConsumed[x][y] = 0;
       }
       
       // 如果水分过低，木材死亡（变为空）
       if (woodHydration[x][y] <= 0){
         grid[x][y] = EL.EMPTY;
         woodHydration[x][y] = 0;
+        woodWaterConsumed[x][y] = 0;
         return;
       }
       
@@ -946,18 +992,18 @@
       canvas.width = Math.floor(rect.width * dpr);
       canvas.height = Math.floor(rect.height * dpr);
       ctx.setTransform(dpr,0,0,dpr,0,0);
-      COLS = Math.floor(canvas.width / (PARAM.particleSize * dpr));
-      ROWS = Math.floor(canvas.height / (PARAM.particleSize * dpr));
       allocGrid();
       draw();
     }
 
     function fitCanvasToContainer(){
-      const wrap = document.getElementById('canvasWrap');
+      resizeCanvas();
     }
     fitCanvasToContainer();
 
     document.addEventListener('selectstart', e => { if (e.target === canvas) e.preventDefault(); });
+
+    window.addEventListener('resize', resizeCanvas);
 
     window._sim = { grid, temp, EL, COLORS, PARAM, draw };
   </script>
