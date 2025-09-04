@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"1.0">
+    <title>物理沙盒模拟器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2em;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .main-content {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .canvas-container {
+            position: relative;
+            border: 3px solid #4a5568;
+            border-radius: 10px;
+            background: #1a1a1a;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        #sandboxCanvas {
+            display: block;
+            cursor: crosshair;
+            border-radius: 7px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 280px;
+        }
+
+        .control-section {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-section h3 {
+            margin-bottom: 12px;
+            color: #4a5568;
+            font-size: 1.1em;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 5px;
+        }
+
+        .element-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .element-btn {
+            padding: 10px;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-size: 0.9em;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .element-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .element-btn.active {
+            border-color: #4a5568;
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.4);
+            transform: scale(1.05);
+        }
+
+        .element-btn.water {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+
+        .element-btn.sand {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: white;
+        }
+
+        .element-btn.stone {
+            background: linear-gradient(135deg, #7f8c8d, #34495e);
+            color: white;
+        }
+
+        .element-btn.fire {
+            background: linear-gradient(135deg, #ff6b6b, #ff4757);
+            color: white;
+        }
+
+        .element-btn.plant {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            color: white;
+        }
+
+        .element-btn.oil {
+            background: linear-gradient(135deg, #2c3e50, #1a252f);
+            color: white;
+        }
+
+        .element-btn.steam {
+            background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+            color: #333;
+        }
+
+        .element-btn.lava {
+            background: linear-gradient(135deg, #ff4500, #ff6347);
+            color: white;
+        }
+
+        .element-btn.ice {
+            background: linear-gradient(135deg, #00d2ff, #3a7bd5);
+            color: white;
+        }
+
+        .brush-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-container label {
+            flex: 1;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 2;
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+            background: #e2e8f0;
+        }
+
+        .slider-container span {
+            min-width: 30px;
+            text-align: center;
+            color: #718096;
+            font-weight: 600;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .action-btn.clear {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        .action-btn.pause {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+
+        .action-btn.paused {
+            background: linear-gradient(135deg, #27ae60, #229954);
+        }
+
+        .info-panel {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 8px;
+            color: #4a5568;
+            font-size: 0.9em;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+
+        .info-label {
+            font-weight: 600;
+        }
+
+        .info-value {
+            color: #667eea;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #667eea;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #667eea;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .element-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌊 物理沙盒模拟器 🔥</h1>
+        <div class="main-content">
+            <div class="canvas-container">
+                <canvas id="sandboxCanvas"></canvas>
+            </div>
+            
+            <div class="controls">
+                <div class="control-section">
+                    <h3>选择元素</h3>
+                    <div class="element-buttons">
+                        <div class="element-btn water" data-element="water">💧 水</div>
+                        <div class="element-btn sand active" data-element="sand">🏖️ 沙子</div>
+                        <div class="element-btn stone" data-element="stone">🪨 石头</div>
+                        <div class="element-btn fire" data-element="fire">🔥 火焰</div>
+                        <div class="element-btn plant" data-element="plant">🌱 植物</div>
+                        <div class="element-btn oil" data-element="oil">🛢️ 油</div>
+                        <div class="element-btn steam" data-element="steam">☁️ 蒸汽</div>
+                        <div class="element-btn lava" data-element="lava">🌋 岩浆</div>
+                        <div class="element-btn ice" data-element="ice">🧊 冰</div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>画笔设置</h3>
+                    <div class="brush-controls">
+                        <div class="slider-container">
+                            <label>画笔大小:</label>
+                            <input type="range" id="brushSize" min="1" max="20" value="5">
+                            <span id="brushSizeValue">5</span>
+                        </div>
+                        <div class="slider-container">
+                            <label>重力强度:</label>
+                            <input type="range" id="gravity" min="0" max="10" value="5">
+                            <span id="gravityValue">5</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>控制</h3>
+                    <div class="action-buttons">
+                        <button class="action-btn clear" id="clearBtn">清空画布</button>
+                        <button class="action-btn pause" id="pauseBtn">暂停</button>
+                    </div>
+                </div>
+
+                <div class="info-panel">
+                    <div class="info-row">
+                        <span class="info-label">粒子数量:</span>
+                        <span class="info-value" id="particleCount">0</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">FPS:</span>
+                        <span class="info-value" id="fps">60</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">当前元素:</span>
+                        <span class="info-value" id="currentElement">沙子</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class PhysicsSandbox {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.width = 800;
+                this.height = 600;
+                this.cellSize = 2;
+                this.cols = Math.floor(this.width / this.cellSize);
+                this.rows = Math.floor(this.height / this.cellSize);
+                
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
+                
+                this.grid = [];
+                this.nextGrid = [];
+                this.velocityGrid = [];
+                
+                this.selectedElement = 'sand';
+                this.brushSize = 5;
+                this.gravity = 0.5;
+                this.isPaused = false;
+                this.isMouseDown = false;
+                
+                this.frameCount = 0;
+                this.lastTime = performance.now();
+                this.fps = 60;
+                
+                this.elementTypes = {
+                    empty: {
+                        color: '#1a1a1a',
+                        density: 0,
+                        state: 'empty',
+                        flammable: false,
+                        melting: false
+                    },
+                    water: {
+                        color: '#3498db',
+                        density: 1,
+                        state: 'liquid',
+                        flammable: false,
+                        melting: false,
+                        evaporates: true,
+                        evaporationTemp: 100
+                    },
+                    sand: {
+                        color: '#f39c12',
+                        density: 2,
+                        state: 'powder',
+                        flammable: false,
+                        melting: true,
+                        meltingTemp: 1700,
+                        meltInto: 'lava'
+                    },
+                    stone: {
+                        color: '#7f8c8d',
+                        density: 4,
+                        state: 'solid',
+                        flammable: false,
+                        melting: true,
+                        meltingTemp: 1200,
+                        meltInto: 'lava'
+                    },
+                    fire: {
+                        color: '#ff6b6b',
+                        density: -1,
+                        state: 'gas',
+                        flammable: false,
+                        lifetime: 30,
+                        temperature: 800,
+                        melting: false
+                    },
+                    plant: {
+                        color: '#27ae60',
+                        density: 1.5,
+                        state: 'solid',
+                        flammable: true,
+                        growsNearWater: true,
+                        melting: false
+                    },
+                    oil: {
+                        color: '#2c3e50',
+                        density: 0.8,
+                        state: 'liquid',
+                        flammable: true,
+                        viscosity: 0.7,
+                        melting: false
+                    },
+                    steam: {
+                        color: '#ecf0f1',
+                        density: -0.5,
+                        state: 'gas',
+                        flammable: false,
+                        lifetime: 100,
+                        condensesTo: 'water',
+                        melting: false,
+                        coolingRate: 0.5  // 增加蒸汽冷却速率
+                    },
+                    lava: {
+                        color: '#ff4500',
+                        density: 3,
+                        state: 'liquid',
+                        flammable: false,
+                        temperature: 1200,
+                        coolsTo: 'stone',
+                        coolingRate: 0.01,
+                        melting: false
+                    },
+                    ice: {
+                        color: '#00d2ff',
+                        density: 0.9,
+                        state: 'solid',
+                        flammable: false,
+                        melting: true,
+                        meltingTemp: 0,
+                        meltInto: 'water'
+                    }
+                };
+                
+                this.init();
+                this.setupEventListeners();
+                this.animate();
+            }
+            
+            init() {
+                for (let i = 0; i < this.rows; i++) {
+                    this.grid[i] = [];
+                    this.nextGrid[i] = [];
+                    this.velocityGrid[i] = [];
+                    for (let j = 0; j < this.cols; j++) {
+                        this.grid[i][j] = { type: 'empty', lifetime: 0, temperature: 20 };
+                        this.nextGrid[i][j] = { type: 'empty', lifetime: 0, temperature: 20 };
+                        this.velocityGrid[i][j] = { vx: 0, vy: 0 };
+                    }
+                }
+            }
+            
+            setupEventListeners() {
+                // 鼠标事件
+                this.canvas.addEventListener('mousedown', (e) => {
+                    this.isMouseDown = true;
+                    this.handleMouse(e);
+                });
+                
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if (this.isMouseDown) {
+                        this.handleMouse(e);
+                    }
+                });
+                
+                this.canvas.addEventListener('mouseup', () => {
+                    this.isMouseDown = false;
+                });
+                
+                this.canvas.addEventListener('mouseleave', () => {
+                    this.isMouseDown = false;
+                });
+                
+                // 触摸事件
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.isMouseDown = true;
+                    this.handleTouch(e);
+                });
+                
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    if (this.isMouseDown) {
+                        this.handleTouch(e);
+                    }
+                });
+                
+                this.canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.isMouseDown = false;
+                });
+                
+                // 元素选择
+                document.querySelectorAll('.element-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelector('.element-btn.active')?.classList.remove('active');
+                        btn.classList.add('active');
+                        this.selectedElement = btn.dataset.element;
+                        document.getElementById('currentElement').textContent = btn.textContent;
+                    });
+                });
+                
+                // 画笔大小
+                document.getElementById('brushSize').addEventListener('input', (e) => {
+                    this.brushSize = parseInt(e.target.value);
+                    document.getElementById('brushSizeValue').textContent = this.brushSize;
+                });
+                
+                // 重力控制
+                document.getElementById('gravity').addEventListener('input', (e) => {
+                    this.gravity = parseInt(e.target.value) / 10;
+                    document.getElementById('gravityValue').textContent = e.target.value;
+                });
+                
+                // 清空按钮
+                document.getElementById('clearBtn').addEventListener('click', () => {
+                    this.init();
+                });
+                
+                // 暂停按钮
+                document.getElementById('pauseBtn').addEventListener('click', (e) => {
+                    this.isPaused = !this.isPaused;
+                    e.target.textContent = this.isPaused ? '继续' : '暂停';
+                    e.target.classList.toggle('paused', this.isPaused);
+                });
+            }
+            
+            handleMouse(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = Math.floor((e.clientX - rect.left) / this.cellSize);
+                const y = Math.floor((e.clientY - rect.top) / this.cellSize);
+                this.placeElement(x, y);
+            }
+            
+            handleTouch(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                const x = Math.floor((touch.clientX - rect.left) / this.cellSize);
+                const y = Math.floor((touch.clientY - rect.top) / this.cellSize);
+                this.placeElement(x, y);
+            }
+            
+            placeElement(x, y) {
+                const radius = Math.floor(this.brushSize / 2);
+                for (let dy = -radius; dy <= radius; dy++) {
+                    for (let dx = -radius; dx <= radius; dx++) {
+                        if (dx * dx + dy * dy <= radius * radius) {
+                            const nx = x + dx;
+                            const ny = y + dy;
+                            if (this.inBounds(nx, ny) && this.grid[ny][nx].type === 'empty') {
+                                const element = this.elementTypes[this.selectedElement];
+                                this.grid[ny][nx] = {
+                                    type: this.selectedElement,
+                                    lifetime: element.lifetime || 0,
+                                    temperature: element.temperature || 20
+                                };
+                                
+                                if (element.state === 'liquid' || element.state === 'gas') {
+                                    this.velocityGrid[ny][nx] = {
+                                        vx: (Math.random() - 0.5) * 2,
+                                        vy: Math.random() * 2
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            inBounds(x, y) {
+                return x >= 0 && x < this.cols && y >= 0 && y < this.rows;
+            }
+            
+            update() {
+                if (this.isPaused) return;
+                
+                // 复制当前网格
+                for (let y = 0; y < this.rows; y++) {
+                    for (let x = 0; x < this.cols; x++) {
+                        this.nextGrid[y][x] = {...this.grid[y][x]};
+                    }
+                }
+                
+                // 更新每个单元格
+                for (let y = this.rows - 1; y >= 0; y--) {
+                    for (let x = 0; x < this.cols; x++) {
+                        const cell = this.grid[y][x];
+                        if (cell.type === 'empty') continue;
+                        
+                        const element = this.elementTypes[cell.type];
+                        
+                        // 生命周期
+                        if (element.lifetime && cell.lifetime > 0) {
+                            cell.lifetime--;
+                            if (cell.lifetime <= 0) {
+                                this.nextGrid[y][x].type = 'empty';
+                                continue;
+                            }
+                        }
+                        
+                        // 温度传导
+                        this.conductHeat(x, y);
+                        
+                        // 状态变化
+                        this.checkStateChanges(x, y);
+                        
+                        // 物理运动
+                        switch (element.state) {
+                            case 'powder':
+                                this.updatePowder(x, y);
+                                break;
+                            case 'liquid':
+                                this.updateLiquid(x, y);
+                                break;
+                            case 'gas':
+                                this.updateGas(x, y);
+                                break;
+                            case 'solid':
+                                // 固体不移动
+                                break;
+                        }
+                        
+                        // 特殊交互
+                        this.checkInteractions(x, y);
+                    }
+                }
+                
+                // 交换网格
+                [this.grid, this.nextGrid] = [this.nextGrid, this.grid];
+            }
+            
+            updatePowder(x, y) {
+                const cell = this.grid[y][x];
+                const element = this.elementTypes[cell.type];
+                const velocity = this.velocityGrid[y][x];
+                
+                // 应用重力
+                velocity.vy += this.gravity;
+                velocity.vy = Math.min(velocity.vy, 5);
+                velocity.vx *= 0.98; // 空气阻力
+                
+                let newX = x + Math.round(velocity.vx);
+                let newY = y + Math.round(velocity.vy);
+                
+                // 检查垂直运动
+                if (this.canMoveTo(x, y, x, newY, element.density)) {
+                    this.swapCells(x, y, x, newY);
+                } else {
+                    velocity.vy = 0;
+                    
+                    // 斜向滑落
+                    const dir = Math.random() < 0.5 ? -1 : 1;
+                    if (this.canMoveTo(x, y, x + dir, y + 1, element.density)) {
+                        this.swapCells(x, y, x + dir, y + 1);
+                        velocity.vx = dir * 0.5;
+                    } else if (this.canMoveTo(x, y, x - dir, y + 1, element.density)) {
+                        this.swapCells(x, y, x - dir, y + 1);
+                        velocity.vx = -dir * 0.5;
+                    }
+                }
+            }
+            
+            updateLiquid(x, y) {
+                const cell = this.grid[y][x];
+                const element = this.elementTypes[cell.type];
+                const velocity = this.velocityGrid[y][x];
+                
+                // 应用重力
+                velocity.vy += this.gravity * 0.8;
+                velocity.vy = Math.min(velocity.vy, 4);
+                velocity.vx *= element.viscosity || 0.95;
+                
+                let moved = false;
+                
+                // 尝试向下移动
+                if (this.canMoveTo(x, y, x, y + 1, element.density)) {
+                    this.swapCells(x, y, x, y + 1);
+                    moved = true;
+                } else {
+                    velocity.vy = 0;
+                    
+                    // 斜向流动
+                    const dir = Math.random() < 0.5 ? -1 : 1;
+                    if (this.canMoveTo(x, y, x + dir, y + 1, element.density)) {
+                        this.swapCells(x, y, x + dir, y + 1);
+                        velocity.vx = dir;
+                        moved = true;
+                    } else if (this.canMoveTo(x, y, x - dir, y + 1, element.density)) {
+                        this.swapCells(x, y, x - dir, y + 1);
+                        velocity.vx = -dir;
+                        moved = true;
+                    }
+                }
+                
+                // 水平扩散
+                if (!moved) {
+                    const spreadRange = 3;
+                    const dir = velocity.vx > 0 ? 1 : (velocity.vx < 0 ? -1 : (Math.random() < 0.5 ? -1 : 1));
+                    
+                    for (let i = 1; i <= spreadRange; i++) {
+                        if (this.canMoveTo(x, y, x + dir * i, y, element.density)) {
+                            this.swapCells(x, y, x + dir * i, y);
+                            velocity.vx = dir * 2;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            updateGas(x, y) {
+                const cell = this.grid[y][x];
+                const element = this.elementTypes[cell.type];
+                const velocity = this.velocityGrid[y][x];
+                
+                // 气体上升
+                velocity.vy += element.density * this.gravity;
+                velocity.vx += (Math.random() - 0.5) * 0.5;
+                velocity.vx *= 0.9;
+                velocity.vy *= 0.95;
+                
+                const newX = x + Math.round(velocity.vx);
+                const newY = y + Math.round(velocity.vy);
+                
+                if (this.canMoveTo(x, y, newX, newY, element.density)) {
+                    this.swapCells(x, y, newX, newY);
+                } else {
+                    // 随机扩散
+                    const dir = Math.floor(Math.random() * 4);
+                    const moves = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+                    const [dx, dy] = moves[dir];
+                    
+                    if (this.canMoveTo(x, y, x + dx, y + dy, element.density)) {
+                        this.swapCells(x, y, x + dx, y + dy);
+                    }
+                }
+            }
+            
+            canMoveTo(fromX, fromY, toX, toY, density) {
+                if (!this.inBounds(toX, toY)) return false;
+                
+                const targetCell = this.grid[toY][toX];
+                const targetElement = this.elementTypes[targetCell.type];
+                
+                return targetCell.type === 'empty' || targetElement.density < density;
+            }
+            
+            swapCells(x1, y1, x2, y2) {
+                if (!this.inBounds(x1, y1) || !this.inBounds(x2, y2)) return;
+                
+                const temp = this.nextGrid[y1][x1];
+                this.nextGrid[y1][x1] = this.nextGrid[y2][x2];
+                this.nextGrid[y2][x2] = temp;
+                
+                const tempVel = this.velocityGrid[y1][x1];
+                this.velocityGrid[y1][x1] = this.velocityGrid[y2][x2];
+                this.velocityGrid[y2][x2] = tempVel;
+            }
+            
+            conductHeat(x, y) {
+                const cell = this.grid[y][x];
+                const neighbors = [
+                    [x - 1, y], [x + 1, y],
+                    [x, y - 1], [x, y + 1]
+                ];
+                
+                let avgTemp = cell.temperature;
+                let count = 1;
+                
+                for (const [nx, ny] of neighbors) {
+                    if (this.inBounds(nx, ny) && this.grid[ny][nx].type !== 'empty') {
+                        avgTemp += this.grid[ny][nx].temperature;
+                        count++;
+                    }
+                }
+                
+                this.nextGrid[y][x].temperature = avgTemp / count;
+            }
+            
+            checkStateChanges(x, y) {
+                const cell = this.grid[y][x];
+                const element = this.elementTypes[cell.type];
+                
+                // 蒸发
+                if (element.evaporates && cell.temperature > element.evaporationTemp) {
+                    this.nextGrid[y][x] = {
+                        type: 'steam',
+                        lifetime: 100,
+                        temperature: cell.temperature
+                    };
+                    this.velocityGrid[y][x] = { vx: 0, vy: -1 };
+                }
+                
+                // 凝结（加快蒸汽冷却）
+                if (cell.type === 'steam') {
+                    cell.temperature -= element.coolingRate || 0.1;
+                    if (cell.temperature < 50) {
+                        this.nextGrid[y][x] = {
+                            type: 'water',
+                            lifetime: 0,
+                            temperature: cell.temperature
+                        };
+                    }
+                }
+                
+                // 熔化
+                if (element.melting && cell.temperature > element.meltingTemp) {
+                    this.nextGrid[y][x] = {
+                        type: element.meltInto,
+                        lifetime: 0,
+                        temperature: cell.temperature
+                    };
+                }
+                
+                // 冷却
+                if (cell.type === 'lava') {
+                    cell.temperature -= element.coolingRate * 10;
+                    if (cell.temperature < 600) {
+                        this.nextGrid[y][x] = {
+                            type: 'stone',
+                            lifetime: 0,
+                            temperature: cell.temperature
+                        };
+                    }
+                }
+                
+                // 冰融化
+                if (cell.type === 'ice' && cell.temperature > 0) {
+                    this.nextGrid[y][x] = {
+                        type: 'water',
+                        lifetime: 0,
+                        temperature: cell.temperature
+                    };
+                }
+            }
+            
+            checkInteractions(x, y) {
+                const cell = this.grid[y][x];
+                const element = this.elementTypes[cell.type];
+                const neighbors = [
+                    [x - 1, y], [x + 1, y],
+                    [x, y - 1], [x, y + 1]
+                ];
+                
+                for (const [nx, ny] of neighbors) {
+                    if (!this.inBounds(nx, ny)) continue;
+                    
+                    const neighbor = this.grid[ny][nx];
+                    const neighborElement = this.elementTypes[neighbor.type];
+                    
+                    // 火焰传播
+                    if (cell.type === 'fire') {
+                        if (neighborElement.flammable) {
+                            this.nextGrid[ny][nx] = {
+                                type: 'fire',
+                                lifetime: 30,
+                                temperature: 800
+                            };
+                        }
+                        // 加热周围
+                        this.nextGrid[ny][nx].temperature += 50;
+                    }
+                    
+                    // 植物生长
+                    if (cell.type === 'plant' && neighbor.type === 'water') {
+                        if (Math.random() < 0.01) {
+                            for (const [gx, gy] of neighbors) {
+                                if (this.inBounds(gx, gy) && this.grid[gy][gx].type === 'empty') {
+                                    this.nextGrid[gy][gx] = {
+                                        type: 'plant',
+                                        lifetime: 0,
+                                        temperature: 20
+                                    };
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 水灭火
+                    if (cell.type === 'water' && neighbor.type === 'fire') {
+                        this.nextGrid[ny][nx] = {
+                            type: 'steam',
+                            lifetime: 50,
+                            temperature: 100
+                        };
+                    }
+                    
+                    // 岩浆与水
+                    if (cell.type === 'lava' && neighbor.type === 'water') {
+                        this.nextGrid[y][x] = {
+                            type: 'stone',
+                            lifetime: 0,
+                            temperature: 100
+                        };
+                        this.nextGrid[ny][nx] = {
+                            type: 'steam',
+                            lifetime: 50,
+                            temperature: 100
+                        };
+                    }
+                    
+                    // 水结冰
+                    if (cell.type === 'water' && cell.temperature < 0) {
+                        this.nextGrid[y][x] = {
+                            type: 'ice',
+                            lifetime: 0,
+                            temperature: cell.temperature
+                        };
+                    }
+                }
+            }
+            
+            render() {
+                this.ctx.fillStyle = '#1a1a1a';
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                
+                let particleCount = 0;
+                
+                for (let y = 0; y < this.rows; y++) {
+                    for (let x = 0; x < this.cols; x++) {
+                        const cell = this.grid[y][x];
+                        if (cell.type !== 'empty') {
+                            const element = this.elementTypes[cell.type];
+                            
+                            // 根据温度调整颜色
+                            let color = element.color;
+                            if (cell.temperature > 100) {
+                                // 高温发光效果
+                                const intensity = Math.min((cell.temperature - 100) / 1000, 1);
+                                this.ctx.shadowBlur = intensity * 10;
+                                this.ctx.shadowColor = '#ff6b6b';
+                            } else {
+                                this.ctx.shadowBlur = 0;
+                            }
+                            
+                            // 特殊渲染效果
+                            if (cell.type === 'fire') {
+                                const flicker = Math.random();
+                                color = flicker > 0.5 ? '#ff6b6b' : (flicker > 0.2 ? '#ffa502' : '#fff200');
+                            } else if (cell.type === 'lava') {
+                                const glow = Math.sin(Date.now() * 0.01 + x + y) * 0.5 + 0.5;
+                                this.ctx.shadowBlur = glow * 15;
+                                this.ctx.shadowColor = '#ff4500';
+                            }
+                            
+                            this.ctx.fillStyle = color;
+                            this.ctx.fillRect(
+                                x * this.cellSize,
+                                y * this.cellSize,
+                                this.cellSize,
+                                this.cellSize
+                            );
+                            
+                            particleCount++;
+                        }
+                    }
+                }
+                
+                // 更新信息
+                document.getElementById('particleCount').textContent = particleCount;
+            }
+            
+            animate() {
+                this.update();
+                this.render();
+                
+                // 计算 FPS
+                this.frameCount++;
+                const currentTime = performance.now();
+                if (currentTime - this.lastTime >= 1000) {
+                    this.fps = this.frameCount;
+                    this.frameCount = 0;
+                    this.lastTime = currentTime;
+                    document.getElementById('fps').textContent = this.fps;
+                }
+                
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+        
+        // 初始化沙盒
+        const sandbox = new PhysicsSandbox('sandboxCanvas');
+    </script>
+</body>
+</html>
