@@ -578,7 +578,7 @@
                         if (dx * dx + dy * dy <= radius * radius) {
                             const nx = x + dx;
                             const ny = y + dy;
-                            if (this.inBounds(nx, ny) && this.grid[ny][nx].type === 'empty') {
+                            if (this.inBounds(nx, ny)) {
                                 const element = this.elementTypes[this.selectedElement];
                                 this.grid[ny][nx] = {
                                     type: this.selectedElement,
@@ -651,7 +651,8 @@
                                 this.updateGas(x, y);
                                 break;
                             case 'solid':
-                                // 固体不移动
+                                // 固体元素（石头、植物）也会受重力影响
+                                this.updateSolid(x, y);
                                 break;
                         }
                         
@@ -662,6 +663,37 @@
                 
                 // 交换网格
                 [this.grid, this.nextGrid] = [this.nextGrid, this.grid];
+            }
+            
+            updateSolid(x, y) {
+                const cell = this.grid[y][x];
+                const element = this.elementTypes[cell.type];
+                const velocity = this.velocityGrid[y][x];
+                
+                // 固体元素受到重力影响但移动较慢
+                velocity.vy += this.gravity * 0.3;
+                velocity.vy = Math.min(velocity.vy, 2);
+                velocity.vx *= 0.95; // 空气阻力
+                
+                let newX = x + Math.round(velocity.vx);
+                let newY = y + Math.round(velocity.vy);
+                
+                // 检查垂直运动
+                if (this.canMoveTo(x, y, x, newY, element.density)) {
+                    this.swapCells(x, y, x, newY);
+                } else {
+                    velocity.vy = 0;
+                    
+                    // 斜向滑落
+                    const dir = Math.random() < 0.5 ? -1 : 1;
+                    if (this.canMoveTo(x, y, x + dir, y + 1, element.density)) {
+                        this.swapCells(x, y, x + dir, y + 1);
+                        velocity.vx = dir * 0.3;
+                    } else if (this.canMoveTo(x, y, x - dir, y + 1, element.density)) {
+                        this.swapCells(x, y, x - dir, y + 1);
+                        velocity.vx = -dir * 0.3;
+                    }
+                }
             }
             
             updatePowder(x, y) {
@@ -858,8 +890,8 @@
                     }
                 }
                 
-                // 冰融化
-                if (cell.type === 'ice' && cell.temperature > 0) {
+                // 冰融化 - 只有当温度明显高于0度时才融化
+                if (cell.type === 'ice' && cell.temperature > 5) {
                     this.nextGrid[y][x] = {
                         type: 'water',
                         lifetime: 0,
@@ -934,8 +966,17 @@
                         };
                     }
                     
+                    // 岩浆点燃可燃物
+                    if (cell.type === 'lava' && neighborElement.flammable) {
+                        this.nextGrid[ny][nx] = {
+                            type: 'fire',
+                            lifetime: 30,
+                            temperature: 800
+                        };
+                    }
+                    
                     // 水结冰
-                    if (cell.type === 'water' && cell.temperature < 0) {
+                    if (cell.type === 'water' && cell.temperature < -5) {
                         this.nextGrid[y][x] = {
                             type: 'ice',
                             lifetime: 0,
