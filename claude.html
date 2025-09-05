@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" 'width=device-width, initial-scale=1.0'>
     <title>物理沙盒模拟器</title>
     <style>
         * {
@@ -460,7 +460,7 @@
                         melting: true,
                         meltingTemp: 0,
                         meltInto: 'water',
-                        initialTemperature: -20  // 冰的初始温度设置为-20度
+                        initialTemperature: -20
                     }
                 };
                 
@@ -483,7 +483,6 @@
             }
             
             setupEventListeners() {
-                // 鼠标事件
                 this.canvas.addEventListener('mousedown', (e) => {
                     this.isMouseDown = true;
                     this.handleMouse(e);
@@ -503,7 +502,6 @@
                     this.isMouseDown = false;
                 });
                 
-                // 触摸事件
                 this.canvas.addEventListener('touchstart', (e) => {
                     e.preventDefault();
                     this.isMouseDown = true;
@@ -522,7 +520,6 @@
                     this.isMouseDown = false;
                 });
                 
-                // 元素选择
                 document.querySelectorAll('.element-btn').forEach(btn => {
                     btn.addEventListener('click', () => {
                         document.querySelector('.element-btn.active')?.classList.remove('active');
@@ -532,24 +529,20 @@
                     });
                 });
                 
-                // 画笔大小
                 document.getElementById('brushSize').addEventListener('input', (e) => {
                     this.brushSize = parseInt(e.target.value);
                     document.getElementById('brushSizeValue').textContent = this.brushSize;
                 });
                 
-                // 重力控制
                 document.getElementById('gravity').addEventListener('input', (e) => {
                     this.gravity = parseInt(e.target.value) / 10;
                     document.getElementById('gravityValue').textContent = e.target.value;
                 });
                 
-                // 清空按钮
                 document.getElementById('clearBtn').addEventListener('click', () => {
                     this.init();
                 });
                 
-                // 暂停按钮
                 document.getElementById('pauseBtn').addEventListener('click', (e) => {
                     this.isPaused = !this.isPaused;
                     e.target.textContent = this.isPaused ? '继续' : '暂停';
@@ -606,14 +599,12 @@
             update() {
                 if (this.isPaused) return;
                 
-                // 复制当前网格
                 for (let y = 0; y < this.rows; y++) {
                     for (let x = 0; x < this.cols; x++) {
                         this.nextGrid[y][x] = {...this.grid[y][x]};
                     }
                 }
                 
-                // 更新每个单元格
                 for (let y = this.rows - 1; y >= 0; y--) {
                     for (let x = 0; x < this.cols; x++) {
                         const cell = this.grid[y][x];
@@ -621,7 +612,6 @@
                         
                         const element = this.elementTypes[cell.type];
                         
-                        // 生命周期处理
                         if (element.lifetime && cell.lifetime > 0) {
                             cell.lifetime--;
                             if (cell.lifetime <= 0) {
@@ -630,17 +620,12 @@
                                 this.nextGrid[y][x].temperature = 20;
                                 continue;
                             }
-                            // 更新下一帧网格的生命周期
                             this.nextGrid[y][x].lifetime = cell.lifetime;
                         }
                         
-                        // 温度传导
                         this.conductHeat(x, y);
-                        
-                        // 状态变化
                         this.checkStateChanges(x, y);
                         
-                        // 物理运动
                         switch (element.state) {
                             case 'powder':
                                 this.updatePowder(x, y);
@@ -652,17 +637,14 @@
                                 this.updateGas(x, y);
                                 break;
                             case 'solid':
-                                // 固体元素（石头、植物）也会受重力影响
                                 this.updateSolid(x, y);
                                 break;
                         }
                         
-                        // 特殊交互
                         this.checkInteractions(x, y);
                     }
                 }
                 
-                // 交换网格
                 [this.grid, this.nextGrid] = [this.nextGrid, this.grid];
             }
             
@@ -671,21 +653,18 @@
                 const element = this.elementTypes[cell.type];
                 const velocity = this.velocityGrid[y][x];
                 
-                // 固体元素受到重力影响但移动较慢
                 velocity.vy += this.gravity * 0.3;
                 velocity.vy = Math.min(velocity.vy, 2);
-                velocity.vx *= 0.95; // 空气阻力
+                velocity.vx *= 0.95;
                 
                 let newX = x + Math.round(velocity.vx);
                 let newY = y + Math.round(velocity.vy);
                 
-                // 检查垂直运动
                 if (this.canMoveTo(x, y, x, newY, element.density)) {
                     this.swapCells(x, y, x, newY);
                 } else {
                     velocity.vy = 0;
                     
-                    // 斜向滑落
                     const dir = Math.random() < 0.5 ? -1 : 1;
                     if (this.canMoveTo(x, y, x + dir, y + 1, element.density)) {
                         this.swapCells(x, y, x + dir, y + 1);
@@ -702,21 +681,18 @@
                 const element = this.elementTypes[cell.type];
                 const velocity = this.velocityGrid[y][x];
                 
-                // 应用重力
                 velocity.vy += this.gravity;
                 velocity.vy = Math.min(velocity.vy, 5);
-                velocity.vx *= 0.98; // 空气阻力
+                velocity.vx *= 0.98;
                 
                 let newX = x + Math.round(velocity.vx);
                 let newY = y + Math.round(velocity.vy);
                 
-                // 检查垂直运动
                 if (this.canMoveTo(x, y, x, newY, element.density)) {
                     this.swapCells(x, y, x, newY);
                 } else {
                     velocity.vy = 0;
                     
-                    // 斜向滑落
                     const dir = Math.random() < 0.5 ? -1 : 1;
                     if (this.canMoveTo(x, y, x + dir, y + 1, element.density)) {
                         this.swapCells(x, y, x + dir, y + 1);
@@ -733,43 +709,44 @@
                 const element = this.elementTypes[cell.type];
                 const velocity = this.velocityGrid[y][x];
                 
-                // 应用重力
-                velocity.vy += this.gravity * 0.8;
-                velocity.vy = Math.min(velocity.vy, 4);
+                // 降低重力影响，使水流更稳定
+                velocity.vy += this.gravity * 0.3;
+                velocity.vy = Math.min(velocity.vy, 2);
+                // 增加粘稠度，减少水平流动
                 velocity.vx *= element.viscosity || 0.95;
                 
                 let moved = false;
                 
-                // 尝试向下移动
+                // 优先向下流动
                 if (this.canMoveTo(x, y, x, y + 1, element.density)) {
                     this.swapCells(x, y, x, y + 1);
                     moved = true;
                 } else {
                     velocity.vy = 0;
                     
-                    // 斜向流动
-                    const dir = Math.random() < 0.5 ? -1 : 1;
-                    if (this.canMoveTo(x, y, x + dir, y + 1, element.density)) {
-                        this.swapCells(x, y, x + dir, y + 1);
-                        velocity.vx = dir;
-                        moved = true;
-                    } else if (this.canMoveTo(x, y, x - dir, y + 1, element.density)) {
-                        this.swapCells(x, y, x - dir, y + 1);
-                        velocity.vx = -dir;
-                        moved = true;
+                    // 如果不能直接向下，尝试斜下方
+                    const dirs = [-1, 1];
+                    for (const dir of dirs) {
+                        if (this.canMoveTo(x, y, x + dir, y + 1, element.density)) {
+                            this.swapCells(x, y, x + dir, y + 1);
+                            velocity.vx = dir * 0.2;
+                            moved = true;
+                            break;
+                        }
                     }
                 }
                 
-                // 水平扩散
+                // 只有在不能向下或斜下流动时才横向扩散
                 if (!moved) {
-                    const spreadRange = 3;
-                    const dir = velocity.vx > 0 ? 1 : (velocity.vx < 0 ? -1 : (Math.random() < 0.5 ? -1 : 1));
-                    
-                    for (let i = 1; i <= spreadRange; i++) {
-                        if (this.canMoveTo(x, y, x + dir * i, y, element.density)) {
-                            this.swapCells(x, y, x + dir * i, y);
-                            velocity.vx = dir * 2;
-                            break;
+                    const spreadDirs = [-1, 1];
+                    for (const dir of spreadDirs) {
+                        if (this.canMoveTo(x, y, x + dir, y, element.density)) {
+                            // 增加概率判断，不是每次都会横向移动
+                            if (Math.random() < 0.3) {
+                                this.swapCells(x, y, x + dir, y);
+                                velocity.vx = dir * 0.1;
+                                break;
+                            }
                         }
                     }
                 }
@@ -780,7 +757,6 @@
                 const element = this.elementTypes[cell.type];
                 const velocity = this.velocityGrid[y][x];
                 
-                // 气体上升
                 velocity.vy += element.density * this.gravity;
                 velocity.vx += (Math.random() - 0.5) * 0.5;
                 velocity.vx *= 0.9;
@@ -792,7 +768,6 @@
                 if (this.canMoveTo(x, y, newX, newY, element.density)) {
                     this.swapCells(x, y, newX, newY);
                 } else {
-                    // 随机扩散
                     const dir = Math.floor(Math.random() * 4);
                     const moves = [[0, -1], [1, 0], [0, 1], [-1, 0]];
                     const [dx, dy] = moves[dir];
@@ -826,29 +801,31 @@
             
             conductHeat(x, y) {
                 const cell = this.grid[y][x];
+                let totalTemp = cell.temperature;
+                let count = 1;
+                
                 const neighbors = [
                     [x - 1, y], [x + 1, y],
                     [x, y - 1], [x, y + 1]
                 ];
                 
-                let avgTemp = cell.temperature;
-                let count = 1;
-                
                 for (const [nx, ny] of neighbors) {
                     if (this.inBounds(nx, ny) && this.grid[ny][nx].type !== 'empty') {
-                        avgTemp += this.grid[ny][nx].temperature;
+                        totalTemp += this.grid[ny][nx].temperature;
                         count++;
                     }
                 }
                 
-                this.nextGrid[y][x].temperature = avgTemp / count;
+                // 改进热传导计算：使用更平滑的平均值
+                const newTemp = totalTemp / count;
+                const currentTemp = this.nextGrid[y][x].temperature;
+                this.nextGrid[y][x].temperature = currentTemp + (newTemp - currentTemp) * 0.3;
             }
             
             checkStateChanges(x, y) {
                 const cell = this.grid[y][x];
                 const element = this.elementTypes[cell.type];
                 
-                // 蒸发
                 if (element.evaporates && cell.temperature > element.evaporationTemp) {
                     this.nextGrid[y][x] = {
                         type: 'steam',
@@ -858,7 +835,6 @@
                     this.velocityGrid[y][x] = { vx: 0, vy: -1 };
                 }
                 
-                // 凝结
                 if (cell.type === 'steam') {
                     cell.temperature -= element.coolingRate || 0.1;
                     if (cell.temperature < 50) {
@@ -870,7 +846,6 @@
                     }
                 }
                 
-                // 熔化
                 if (element.melting && cell.temperature > element.meltingTemp) {
                     this.nextGrid[y][x] = {
                         type: element.meltInto,
@@ -879,7 +854,6 @@
                     };
                 }
                 
-                // 冷却
                 if (cell.type === 'lava') {
                     cell.temperature -= element.coolingRate * 10;
                     if (cell.temperature < 600) {
@@ -891,7 +865,6 @@
                     }
                 }
                 
-                // 冰融化 - 只有当温度明显高于0度时才融化
                 if (cell.type === 'ice' && cell.temperature > 5) {
                     this.nextGrid[y][x] = {
                         type: 'water',
@@ -915,7 +888,6 @@
                     const neighbor = this.grid[ny][nx];
                     const neighborElement = this.elementTypes[neighbor.type];
                     
-                    // 火焰传播
                     if (cell.type === 'fire') {
                         if (neighborElement.flammable) {
                             this.nextGrid[ny][nx] = {
@@ -924,11 +896,9 @@
                                 temperature: 800
                             };
                         }
-                        // 加热周围
                         this.nextGrid[ny][nx].temperature += 50;
                     }
                     
-                    // 植物生长
                     if (cell.type === 'plant' && neighbor.type === 'water') {
                         if (Math.random() < 0.01) {
                             for (const [gx, gy] of neighbors) {
@@ -944,7 +914,6 @@
                         }
                     }
                     
-                    // 水灭火
                     if (cell.type === 'water' && neighbor.type === 'fire') {
                         this.nextGrid[ny][nx] = {
                             type: 'steam',
@@ -953,7 +922,6 @@
                         };
                     }
                     
-                    // 岩浆与水
                     if (cell.type === 'lava' && neighbor.type === 'water') {
                         this.nextGrid[y][x] = {
                             type: 'stone',
@@ -967,7 +935,6 @@
                         };
                     }
                     
-                    // 岩浆点燃可燃物
                     if (cell.type === 'lava' && neighborElement.flammable) {
                         this.nextGrid[ny][nx] = {
                             type: 'fire',
@@ -976,7 +943,6 @@
                         };
                     }
                     
-                    // 水结冰
                     if (cell.type === 'water' && cell.temperature < -5) {
                         this.nextGrid[y][x] = {
                             type: 'ice',
@@ -999,15 +965,12 @@
                         if (cell.type !== 'empty') {
                             const element = this.elementTypes[cell.type];
                             
-                            // 根据温度调整颜色
                             let color = element.color;
                             if (cell.temperature > 100) {
-                                // 高温发光效果
                                 const intensity = Math.min((cell.temperature - 100) / 1000, 1);
                                 this.ctx.shadowBlur = intensity * 10;
                                 this.ctx.shadowColor = '#ff6b6b';
                             } else if (cell.type === 'ice') {
-                                // 冰的低温效果
                                 const intensity = Math.min(Math.abs(cell.temperature) / 30, 1);
                                 this.ctx.shadowBlur = intensity * 5;
                                 this.ctx.shadowColor = '#00d2ff';
@@ -1015,7 +978,6 @@
                                 this.ctx.shadowBlur = 0;
                             }
                             
-                            // 特殊渲染效果
                             if (cell.type === 'fire') {
                                 const flicker = Math.random();
                                 color = flicker > 0.5 ? '#ff6b6b' : (flicker > 0.2 ? '#ffa502' : '#fff200');
@@ -1038,7 +1000,6 @@
                     }
                 }
                 
-                // 更新信息
                 document.getElementById('particleCount').textContent = particleCount;
             }
             
@@ -1046,7 +1007,6 @@
                 this.update();
                 this.render();
                 
-                // 计算 FPS
                 this.frameCount++;
                 const currentTime = performance.now();
                 if (currentTime - this.lastTime >= 1000) {
@@ -1060,7 +1020,6 @@
             }
         }
         
-        // 初始化沙盒
         const sandbox = new PhysicsSandbox('sandboxCanvas');
     </script>
 </body>
