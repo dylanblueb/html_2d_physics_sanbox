@@ -459,7 +459,8 @@
                         flammable: false,
                         melting: true,
                         meltingTemp: 0,
-                        meltInto: 'water'
+                        meltInto: 'water',
+                        initialTemperature: -20  // 冰的初始温度设置为-20度
                     }
                 };
                 
@@ -583,7 +584,7 @@
                                 this.grid[ny][nx] = {
                                     type: this.selectedElement,
                                     lifetime: element.lifetime || 0,
-                                    temperature: element.temperature || 20
+                                    temperature: element.initialTemperature || element.temperature || 20
                                 };
                                 
                                 if (element.state === 'liquid' || element.state === 'gas') {
@@ -1005,6 +1006,11 @@
                                 const intensity = Math.min((cell.temperature - 100) / 1000, 1);
                                 this.ctx.shadowBlur = intensity * 10;
                                 this.ctx.shadowColor = '#ff6b6b';
+                            } else if (cell.type === 'ice') {
+                                // 冰的低温效果
+                                const intensity = Math.min(Math.abs(cell.temperature) / 30, 1);
+                                this.ctx.shadowBlur = intensity * 5;
+                                this.ctx.shadowColor = '#00d2ff';
                             } else {
                                 this.ctx.shadowBlur = 0;
                             }
