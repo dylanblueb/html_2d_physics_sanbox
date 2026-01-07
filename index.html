@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Physics Sandbox - Interactive Physics Simulation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.95;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            margin-bottom: 40px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .game-wrapper {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .game-wrapper h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .game-container {
+            background: #f5f5f5;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .game-container iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .versions-section {
+            margin-top: 40px;
+        }
+
+        .versions-section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .versions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .version-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .version-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .version-card h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        .version-card p {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .version-card a {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 25px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .version-card a:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            transform: scale(1.05);
+        }
+
+        .info-section {
+            background: #f0f4ff;
+            border-left: 5px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+
+        .info-section h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .info-section p {
+            color: #555;
+            line-height: 1.6;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            opacity: 0.9;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            header p {
+                font-size: 1em;
+            }
+
+            .main-content {
+                padding: 20px;
+            }
+
+            .game-container iframe {
+                height: 400px;
+            }
+
+            .versions-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎮 2D Physics Sandbox</h1>
+        <p>Interactive Physics Simulation Engine</p>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="game-wrapper">
+                <h2>Play the Physics Sandbox</h2>
+                <div class="game-container">
+                    <!-- Placeholder for the main game -->
+                    <iframe src="game.html" title="2D Physics Sandbox Game"></iframe>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h4>About This Sandbox</h4>
+                <p>
+                    This interactive physics sandbox allows you to explore 2D physics simulations in real-time. 
+                    Create objects, apply forces, and watch realistic physics in action. Perfect for learning, 
+                    experimentation, and creative exploration of physics concepts.
+                </p>
+            </div>
+
+            <div class="versions-section">
+                <h3>Available Versions</h3>
+                <div class="versions-grid">
+                    <div class="version-card">
+                        <h4>📱 Mobile Version</h4>
+                        <p>Optimized for touchscreen devices with simplified controls and responsive design.</p>
+                        <a href="mobile.html">Play Mobile</a>
+                    </div>
+
+                    <div class="version-card">
+                        <h4>💻 Desktop Version</h4>
+                        <p>Full-featured version with advanced controls and maximum performance.</p>
+                        <a href="desktop.html">Play Desktop</a>
+                    </div>
+
+                    <div class="version-card">
+                        <h4>🎓 Educational Mode</h4>
+                        <p>Learn physics with tutorials, force diagrams, and educational overlays.</p>
+                        <a href="educational.html">Learn Physics</a>
+                    </div>
+
+                    <div class="version-card">
+                        <h4>🎨 Creative Sandbox</h4>
+                        <p>Unleash your creativity with custom objects, colors, and physics parameters.</p>
+                        <a href="creative.html">Create & Play</a>
+                    </div>
+
+                    <div class="version-card">
+                        <h4>⚡ Physics Experiments</h4>
+                        <p>Pre-configured experiments to demonstrate physics principles and phenomena.</p>
+                        <a href="experiments.html">View Experiments</a>
+                    </div>
+
+                    <div class="version-card">
+                        <h4>📊 Advanced Simulation</h4>
+                        <p>Advanced features including particle systems, collisions, and physics analysis.</p>
+                        <a href="advanced.html">Advanced Mode</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2026 2D Physics Sandbox | Created by Dylan Blue | <a href="https://github.com/dylanblueb/html_2d_physics_sanbox" style="color: white; text-decoration: underline;">View on GitHub</a></p>
+        </footer>
+    </div>
+</body>
+</html>
