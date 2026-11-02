@@ -1,343 +1,798 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2D Physics Sandbox - Home</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b0e17">
+<title>物理沙盒 · 每日场景</title>
+<style>
+  :root{
+    --bg:#0b0e17; --panel:#121726; --panel2:#182036; --line:#232c45;
+    --ink:#e6ebf5; --muted:#8b95ad; --accent:#6ea8ff; --accent2:#ffb454; --danger:#ff6b6b;
+    --r:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{
+    background:radial-gradient(1200px 600px at 70% -10%,#1a2340 0%,var(--bg) 60%);
+    color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:grid; grid-template-rows:auto 1fr; height:100dvh;
+    user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+  }
+  button,input,select{font:inherit;color:inherit}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-            color: #333;
-        }
+  /* ---------- 顶栏 ---------- */
+  header{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:10px 16px;border-bottom:1px solid var(--line);background:rgba(11,14,23,.7);backdrop-filter:blur(8px);
+  }
+  .brand{font-weight:700;font-size:17px;letter-spacing:.02em;white-space:nowrap}
+  .brand span{color:var(--accent2)}
+  .scene-tag{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .pill{padding:3px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);white-space:nowrap}
+  .pill.scene{color:var(--accent2);font-weight:600}
+  .grow{flex:1}
+  .stats{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  header a{color:var(--muted);font-size:12px;text-decoration:none}
+  header a:hover{color:var(--ink)}
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+  /* ---------- 主区域 ---------- */
+  main{display:grid;grid-template-columns:270px 1fr;min-height:0}
+  aside{
+    background:var(--panel);border-right:1px solid var(--line);
+    padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;
+  }
+  .sec h3{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.12em;margin-bottom:8px}
+  .palette{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .el{
+    display:flex;flex-direction:column;align-items:center;gap:4px;padding:7px 2px 6px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;cursor:pointer;
+    font-size:12px;position:relative;transition:transform .08s,border-color .15s,background .15s;
+  }
+  .el:hover{border-color:#3a4769}
+  .el:active{transform:scale(.96)}
+  .el.on{border-color:var(--accent);background:#1d2a4a;box-shadow:0 0 0 1px var(--accent) inset}
+  .sw{width:22px;height:14px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
+  .el kbd{position:absolute;top:2px;right:5px;font-size:9px;color:var(--muted);font-family:inherit}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .btn{
+    flex:1 1 auto;padding:8px 10px;border-radius:10px;border:1px solid var(--line);
+    background:var(--panel2);cursor:pointer;font-size:13px;white-space:nowrap;transition:background .15s,border-color .15s;
+  }
+  .btn:hover{border-color:#3a4769;background:#1f2944}
+  .btn.primary{background:#23407a;border-color:#2f5299}
+  .btn.warn{color:#ffd1d1}
+  .btn.toggle.on{background:#3a2f12;border-color:var(--accent2);color:var(--accent2)}
+  .slider{display:flex;align-items:center;gap:10px;font-size:13px}
+  .slider input{flex:1;accent-color:var(--accent)}
+  .slider output{width:26px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+  input[type=date]{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 8px;color-scheme:dark;flex:1}
+  .help{font-size:12px;line-height:1.7;color:var(--muted)}
+  .help b{color:var(--ink);font-weight:500}
 
-        header {
-            text-align: center;
-            color: white;
-            margin-bottom: 50px;
-            animation: fadeIn 0.8s ease-in;
-        }
+  .stage{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;padding:12px;overflow:hidden}
+  .frame{position:relative;border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 0 1px var(--line)}
+  canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;cursor:none}
+  #cursor{position:absolute;pointer-events:none;border:1.5px solid rgba(255,255,255,.75);border-radius:50%;
+    box-shadow:0 0 0 1px rgba(0,0,0,.4);transform:translate(-50%,-50%);display:none}
+  .toast{position:absolute;left:50%;top:18px;transform:translateX(-50%);background:rgba(18,23,38,.92);border:1px solid var(--line);
+    padding:8px 14px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+  .toast.show{opacity:1}
 
-        header h1 {
-            font-size: 3em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-        }
-
-        header p {
-            font-size: 1.2em;
-            opacity: 0.9;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-        }
-
-        .features {
-            background: white;
-            border-radius: 10px;
-            padding: 40px;
-            margin-bottom: 50px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            animation: slideUp 0.8s ease-out;
-        }
-
-        .features h2 {
-            color: #667eea;
-            margin-bottom: 20px;
-            font-size: 1.8em;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-
-        .feature-card {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-
-        .feature-card h3 {
-            color: #667eea;
-            margin-bottom: 10px;
-        }
-
-        .feature-card p {
-            color: #555;
-            line-height: 1.6;
-            font-size: 0.95em;
-        }
-
-        .instructions {
-            background: white;
-            border-radius: 10px;
-            padding: 40px;
-            margin-bottom: 50px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            animation: slideUp 0.8s ease-out 0.2s backwards;
-        }
-
-        .instructions h2 {
-            color: #667eea;
-            margin-bottom: 20px;
-            font-size: 1.8em;
-        }
-
-        .instruction-item {
-            margin-bottom: 15px;
-            padding-left: 30px;
-            position: relative;
-            line-height: 1.6;
-        }
-
-        .instruction-item:before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            color: #667eea;
-            font-weight: bold;
-            font-size: 1.2em;
-        }
-
-        .versions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            margin-top: 30px;
-        }
-
-        .version-card {
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            animation: slideUp 0.8s ease-out 0.4s backwards;
-        }
-
-        .version-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .version-header {
-            padding: 30px;
-            color: white;
-            text-align: center;
-        }
-
-        .version-card:nth-child(1) .version-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .version-card:nth-child(2) .version-header {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-
-        .version-card:nth-child(3) .version-header {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-
-        .version-header h3 {
-            font-size: 1.8em;
-            margin-bottom: 10px;
-        }
-
-        .version-header p {
-            font-size: 0.95em;
-            opacity: 0.9;
-        }
-
-        .version-content {
-            padding: 30px;
-        }
-
-        .version-content p {
-            color: #666;
-            margin-bottom: 20px;
-            line-height: 1.6;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 12px 30px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-            font-size: 1em;
-            font-weight: 600;
-            width: 100%;
-            text-align: center;
-        }
-
-        .btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .version-card:nth-child(1) .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .version-card:nth-child(2) .btn {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-
-        .version-card:nth-child(3) .btn {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-
-        footer {
-            text-align: center;
-            color: white;
-            padding: 20px;
-            margin-top: 50px;
-            opacity: 0.8;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @media (max-width: 768px) {
-            header h1 {
-                font-size: 2em;
-            }
-
-            .features,
-            .instructions {
-                padding: 20px;
-            }
-
-            .versions {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+  /* ---------- 移动端 ---------- */
+  @media (max-width:820px){
+    header{padding:8px 10px;gap:8px}
+    .brand{font-size:15px}
+    .stats,header a{display:none}
+    main{grid-template-columns:1fr;grid-template-rows:1fr auto}
+    aside{order:2;border-right:none;border-top:1px solid var(--line);max-height:42dvh;padding:10px;gap:10px}
+    .stage{padding:6px}
+    .palette{grid-template-columns:repeat(7,1fr)}
+    .el{font-size:11px;padding:6px 0 5px}
+    .el kbd,.sec.help-sec{display:none}
+  }
+</style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🎮 2D Physics Sandbox</h1>
-            <p>Interactive physics simulation created with multiple AI models</p>
-        </header>
+<header>
+  <div class="brand">物理沙盒 <span>· 每日场景</span></div>
+  <div class="scene-tag">
+    <span class="pill" id="dateLabel">—</span>
+    <span class="pill scene" id="sceneLabel">—</span>
+  </div>
+  <div class="grow"></div>
+  <div class="stats" id="stats">— fps</div>
+  <a href="versions.html">历史版本 ›</a>
+</header>
 
-        <section class="features">
-            <h2>🌟 Game Features</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <h3>Interactive Physics</h3>
-                    <p>Experience realistic 2D physics simulations with gravity, collisions, and dynamic interactions.</p>
-                </div>
-                <div class="feature-card">
-                    <h3>Real-time Rendering</h3>
-                    <p>Smooth canvas-based rendering with optimized performance for fluid animations.</p>
-                </div>
-                <div class="feature-card">
-                    <h3>Multiple Implementations</h3>
-                    <p>Compare different AI-generated implementations of the same physics engine concept.</p>
-                </div>
-                <div class="feature-card">
-                    <h3>User-Friendly Controls</h3>
-                    <p>Intuitive mouse and keyboard controls for an engaging sandbox experience.</p>
-                </div>
-                <div class="feature-card">
-                    <h3>Visual Feedback</h3>
-                    <p>Clear visual representation of physics objects with collision detection visualization.</p>
-                </div>
-                <div class="feature-card">
-                    <h3>Responsive Design</h3>
-                    <p>Works seamlessly across different screen sizes and devices.</p>
-                </div>
-            </div>
-        </section>
-
-        <section class="instructions">
-            <h2>📖 How to Play</h2>
-            <div class="instruction-item">Click or drag in the sandbox to interact with physics objects</div>
-            <div class="instruction-item">Watch as gravity and collisions affect the movement of objects</div>
-            <div class="instruction-item">Experiment with different forces and interactions</div>
-            <div class="instruction-item">Use keyboard shortcuts to reset or change simulation parameters (see in-game help)</div>
-            <div class="instruction-item">Observe how different implementations handle the same physics</div>
-        </section>
-
-        <h2 style="color: white; text-align: center; margin-bottom: 30px; font-size: 2em;">
-            🚀 Choose Your Version
-        </h2>
-
-        <div class="versions">
-            <div class="version-card">
-                <div class="version-header">
-                    <h3>Claude Version</h3>
-                    <p>Anthropic's Claude Model</p>
-                </div>
-                <div class="version-content">
-                    <p>Experience the physics sandbox built with Anthropic's Claude AI model. This version emphasizes robust physics calculations and clear code structure.</p>
-                    <a href="claude.html" class="btn">Launch Claude Version</a>
-                </div>
-            </div>
-
-            <div class="version-card">
-                <div class="version-header">
-                    <h3>GPT Version</h3>
-                    <p>OpenAI's GPT Model</p>
-                </div>
-                <div class="version-content">
-                    <p>Explore the sandbox implementation created by OpenAI's GPT model. Known for detailed implementations and comprehensive feature sets.</p>
-                    <a href="gpt.html" class="btn">Launch GPT Version</a>
-                </div>
-            </div>
-
-            <div class="version-card">
-                <div class="version-header">
-                    <h3>Qwen Version</h3>
-                    <p>Alibaba's Qwen Model</p>
-                </div>
-                <div class="version-content">
-                    <p>Try the physics engine built with Alibaba's Qwen AI model. Offers a unique approach to physics simulation and rendering.</p>
-                    <a href="qwen.html" class="btn">Launch Qwen Version</a>
-                </div>
-            </div>
-        </div>
-
-        <footer>
-            <p>&copy; 2026 2D Physics Sandbox | Created with AI | All versions available for comparison</p>
-        </footer>
+<main>
+  <aside>
+    <div class="sec">
+      <h3>元素</h3>
+      <div class="palette" id="palette"></div>
     </div>
+    <div class="sec">
+      <h3>画笔</h3>
+      <div class="slider"><span>大小</span><input id="brush" type="range" min="1" max="24" value="4"><output id="brushVal">4</output></div>
+      <div class="slider" style="margin-top:6px"><span>速度</span><input id="speed" type="range" min="1" max="4" value="1"><output id="speedVal">1×</output></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn toggle" id="overwriteBtn" title="开启后可以覆盖已有元素">覆盖模式：关</button>
+      </div>
+    </div>
+    <div class="sec">
+      <h3>控制</h3>
+      <div class="row">
+        <button class="btn primary" id="pauseBtn">⏸ 暂停</button>
+        <button class="btn" id="stepBtn" title="暂停时单步">单步</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="resetBtn">↺ 重置今日场景</button>
+        <button class="btn warn" id="clearBtn">清空</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="randomBtn">🎲 随机其他场景</button>
+      </div>
+    </div>
+    <div class="sec">
+      <h3>日期</h3>
+      <div class="row">
+        <input type="date" id="datePick">
+        <button class="btn" id="todayBtn" style="flex:0 0 auto">今天</button>
+      </div>
+    </div>
+    <div class="sec help-sec">
+      <h3>操作说明</h3>
+      <div class="help">
+        <b>左键/手指</b> 绘制 · <b>右键</b> 或 <b>Shift</b> 擦除<br>
+        <b>Alt+点击</b> 吸取元素 · <b>数字键</b> 切换元素<br>
+        <b>[ ]</b> 画笔大小 · <b>空格</b> 暂停 · <b>R</b> 重置<br>
+        火会点燃植物、木头和油；水灭火变蒸汽；熔岩遇水凝成石头；蒸汽升到顶部会冷凝成雨。
+      </div>
+    </div>
+  </aside>
+
+  <section class="stage" id="stage">
+    <div class="frame" id="frame">
+      <canvas id="cv"></canvas>
+      <div id="cursor"></div>
+    </div>
+    <div class="toast" id="toast"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+/* =====================================================================
+ * 1. 配置 & 元素定义
+ * ===================================================================== */
+const W = 300, H = 200;               // 网格尺寸（固定，保证同日场景一致）
+const N = W * H;
+
+const E = { EMPTY:0, SAND:1, WATER:2, STONE:3, WOOD:4, PLANT:5, FIRE:6, SMOKE:7, STEAM:8, OIL:9, LAVA:10, ICE:11, GLASS:12 };
+const KIND = { STATIC:0, POWDER:1, LIQUID:2, GAS:3, FIRE:4, NONE:5 };
+
+// name, color, kind, density, flammability(0..1 per tick), key, paint fill ratio
+const DEF = [];
+function def(id, o){ DEF[id] = o; }
+def(E.EMPTY, {name:'橡皮', color:'#000000', kind:KIND.NONE,   dens:0,  flam:0,    key:'0', fill:1});
+def(E.SAND,  {name:'沙子', color:'#e2b867', kind:KIND.POWDER, dens:7,  flam:0,    key:'1', fill:.55, vary:18});
+def(E.WATER, {name:'水',   color:'#3a7bd5', kind:KIND.LIQUID, dens:4,  flam:0,    key:'2', fill:.6,  vary:8, disp:5});
+def(E.STONE, {name:'石头', color:'#6b7385', kind:KIND.STATIC, dens:99, flam:0,    key:'3', fill:1,   vary:14});
+def(E.WOOD,  {name:'木头', color:'#7a4a24', kind:KIND.STATIC, dens:99, flam:.012, key:'4', fill:1,   vary:12, burn:[90,150]});
+def(E.PLANT, {name:'植物', color:'#3fae4a', kind:KIND.STATIC, dens:99, flam:.08,  key:'5', fill:.8,  vary:22, burn:[18,36]});
+def(E.FIRE,  {name:'火',   color:'#ff7a1a', kind:KIND.FIRE,   dens:1,  flam:0,    key:'6', fill:.5});
+def(E.OIL,   {name:'油',   color:'#5b4630', kind:KIND.LIQUID, dens:3,  flam:.25,  key:'7', fill:.6,  vary:8, disp:3, burn:[25,50]});
+def(E.LAVA,  {name:'熔岩', color:'#ff5a14', kind:KIND.LIQUID, dens:6,  flam:0,    key:'8', fill:.6,  vary:30, disp:1});
+def(E.ICE,   {name:'冰',   color:'#a8dcf0', kind:KIND.STATIC, dens:99, flam:0,    key:'9', fill:1,   vary:10});
+def(E.STEAM, {name:'蒸汽', color:'#c9d6e3', kind:KIND.GAS,    dens:1,  flam:0,    key:'',  fill:.4,  vary:14});
+def(E.SMOKE, {name:'烟',   color:'#4b4f58', kind:KIND.GAS,    dens:1,  flam:0,    key:'',  fill:.4,  vary:10});
+def(E.GLASS, {name:'玻璃', color:'#bfe3e6', kind:KIND.STATIC, dens:99, flam:0,    key:'',  fill:1,   vary:6});
+const PALETTE_ORDER = [E.EMPTY,E.SAND,E.WATER,E.STONE,E.WOOD,E.PLANT,E.FIRE,E.OIL,E.LAVA,E.ICE,E.STEAM,E.SMOKE,E.GLASS];
+
+// 快速查表（typed arrays）
+const T_KIND = new Uint8Array(16), T_DENS = new Uint8Array(16), T_FLAM = new Float32Array(16), T_MOVABLE = new Uint8Array(16);
+DEF.forEach((d,i)=>{ T_KIND[i]=d.kind; T_DENS[i]=d.dens; T_FLAM[i]=d.flam; T_MOVABLE[i]= (d.kind!==KIND.STATIC && d.kind!==KIND.FIRE) ? 1 : 0; });
+
+/* ---------- 网格状态 ---------- */
+const type  = new Uint8Array(N);   // 元素类型
+const life  = new Uint8Array(N);   // 寿命 / 生长预算
+const shade = new Uint8Array(N);   // 颜色抖动
+const stamp = new Uint8Array(N);   // 本帧已移动标记
+let frameId = 1;
+
+/* =====================================================================
+ * 2. 随机数 & 每日场景生成
+ * ===================================================================== */
+function hashStr(s){            // xmur3
+  let h = 1779033703 ^ s.length;
+  for (let i=0;i<s.length;i++){ h = Math.imul(h ^ s.charCodeAt(i), 3432918353); h = h<<13 | h>>>19; }
+  h = Math.imul(h ^ h>>>16, 2246822507); h = Math.imul(h ^ h>>>13, 3266489909);
+  return (h ^= h>>>16) >>> 0;
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a>>>15, 1 | a);
+    t = t + Math.imul(t ^ t>>>7, 61 | t) ^ t;
+    return ((t ^ t>>>14) >>> 0) / 4294967296;
+  };
+}
+function localDateStr(d = new Date()){
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+
+// 背景主题（随场景种子变化）
+const SKIES = [
+  {name:'星夜', top:[6,8,20], bot:[22,28,52], stars:.004},
+  {name:'黄昏', top:[20,12,34], bot:[64,34,52]},
+  {name:'清晨', top:[10,22,36], bot:[34,62,78]},
+  {name:'月夜', top:[6,14,28], bot:[16,38,66], stars:.002},
+];
+let sky = SKIES[0];
+
+function makeGen(rng){
+  const g = {
+    rng,
+    rf:(a,b)=>a+(b-a)*rng(),
+    ri:(a,b)=>Math.floor(a+(b-a+1)*rng()),
+    chance:p=>rng()<p,
+    set(x,y,t,l=0){
+      x|=0; y|=0;
+      if (x<0||y<0||x>=W||y>=H) return;
+      const i=y*W+x; type[i]=t; life[i]=l; shade[i]=(rng()*256)|0;
+    },
+    get(x,y){ return (x<0||y<0||x>=W||y>=H) ? E.STONE : type[(y|0)*W+(x|0)]; },
+    // 1D 平滑噪声：返回长度 W 的数组，范围约 [-1,1]
+    noise1(scale, oct=3){
+      const out = new Float32Array(W);
+      let amp=1, sc=scale, tot=0;
+      for (let o=0;o<oct;o++){
+        const n = Math.ceil(W/sc)+2, pts = Array.from({length:n},()=>rng()*2-1);
+        for (let x=0;x<W;x++){
+          const f=x/sc, i=Math.floor(f), t=f-i, s=t*t*(3-2*t);
+          out[x]+= amp*(pts[i]*(1-s)+pts[i+1]*s);
+        }
+        tot+=amp; amp*=.5; sc=Math.max(4,sc/2);
+      }
+      for (let x=0;x<W;x++) out[x]/=tot;
+      return out;
+    },
+    // 2D 值噪声（单层，双线性 + smoothstep）
+    noise2(scale){
+      const gw=Math.ceil(W/scale)+2, gh=Math.ceil(H/scale)+2;
+      const v=new Float32Array(gw*gh).map(()=>rng());
+      return (x,y)=>{
+        const fx=x/scale, fy=y/scale, ix=fx|0, iy=fy|0;
+        let tx=fx-ix, ty=fy-iy; tx=tx*tx*(3-2*tx); ty=ty*ty*(3-2*ty);
+        const a=v[iy*gw+ix], b=v[iy*gw+ix+1], c=v[(iy+1)*gw+ix], d=v[(iy+1)*gw+ix+1];
+        return (a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty;
+      };
+    },
+    // 地表：h[x] 以下填石头，顶部 sandDepth 填沙
+    ground(h, sandDepth=4, sandNoise=null){
+      for (let x=0;x<W;x++){
+        const top=Math.max(0,Math.round(h[x]));
+        const sd = sandNoise ? Math.max(0,Math.round(sandDepth + sandNoise[x]*sandDepth)) : sandDepth;
+        for (let y=top;y<H;y++) g.set(x,y, y<top+sd ? E.SAND : E.STONE);
+      }
+    },
+    // 在 [x0,x1] 列内把地表以上、水位以下的空格填满液体
+    fillTo(level, x0, x1, t=E.WATER){
+      for (let x=Math.max(0,x0|0); x<=Math.min(W-1,x1|0); x++)
+        for (let y=Math.round(level); y<H && g.get(x,y)===E.EMPTY; y++) g.set(x,y,t);
+    },
+    blob(cx,cy,rx,ry,t,onlyIn=null){
+      for (let y=Math.floor(cy-ry);y<=cy+ry;y++) for (let x=Math.floor(cx-rx);x<=cx+rx;x++){
+        const dx=(x-cx)/rx, dy=(y-cy)/ry;
+        if (dx*dx+dy*dy<=1 && (onlyIn===null || g.get(x,y)===onlyIn)) g.set(x,y,t);
+      }
+    },
+    surface(x){ for (let y=0;y<H;y++) if (type[y*W+x]!==E.EMPTY) return y; return H; },
+    tree(x, baseY, hgt, r){
+      for (let y=0;y<hgt;y++){ g.set(x,baseY-1-y,E.WOOD); if (hgt>9) g.set(x+1,baseY-1-y,E.WOOD); }
+      const cy=baseY-hgt-r*0.4;
+      for (let k=0;k<3;k++) g.blob(x+g.rf(-r*.5,r*.5), cy+g.rf(-r*.4,r*.3), r*g.rf(.7,1.1), r*g.rf(.55,.8), E.PLANT, E.EMPTY);
+    },
+    grass(x){ const y=g.surface(x); if (y<H && type[y*W+x]===E.SAND){ const hh=g.ri(1,3); for(let k=1;k<=hh;k++) g.set(x,y-k,E.PLANT, 2); } },
+    // 地表植被：在非水下的沙地上长草、树
+    vegetate(x0, x1, grassP=.35, treeP=.03){
+      let lastTree=-99;
+      for (let x=Math.max(2,x0); x<=Math.min(W-3,x1); x++){
+        const y=g.surface(x);
+        if (y>=H || type[y*W+x]!==E.SAND) continue;
+        if (g.get(x-2,y)===E.WATER || g.get(x+2,y)===E.WATER) continue;
+        if (x-lastTree>10 && g.chance(treeP) && y>25){ g.tree(x,y,g.ri(7,15),g.ri(4,7)); lastTree=x; }
+        else if (g.chance(grassP)) g.grass(x);
+      }
+    },
+  };
+  return g;
+}
+
+/* ---------- 场景模板 ---------- */
+const SCENES = [
+  { name:'山谷湖泊', build(g){
+      const n=g.noise1(80,3);
+      const cx=g.ri(W*.3,W*.7), w=g.rf(30,55), depth=g.rf(30,45);
+      const h=new Float32Array(W);
+      for (let x=0;x<W;x++) h[x]=H*.5 + n[x]*H*.16 + depth*Math.exp(-(((x-cx)/w)**2));
+      g.ground(h, 5, g.noise1(30,2));
+      // 湖面 = 两侧湖岸最高点中较低者往下一点；只填湖区所在的盆地
+      let rimL=H, rimR=H;
+      for (let x=Math.max(0,cx-w*2|0);x<cx;x++) rimL=Math.min(rimL,h[x]);
+      for (let x=cx+1;x<Math.min(W,cx+w*2);x++) rimR=Math.min(rimR,h[x]);
+      const lv=Math.min(h[cx]-6, Math.max(rimL,rimR)+g.rf(3,8));
+      let a=cx, b=cx; while(a>0 && h[a-1]>lv) a--; while(b<W-1 && h[b+1]>lv) b++;
+      g.fillTo(lv, a, b, E.WATER);
+      g.vegetate(0, W-1, .45, .05);
+      if (g.chance(.5)) g.blob(g.ri(30,W-30), H-g.ri(12,22), g.rf(10,20), g.rf(4,7), E.LAVA, E.STONE);
+  }},
+  { name:'火山口', build(g){
+      const n=g.noise1(60,3);
+      const cx=g.ri(W*.38,W*.62), r=g.rf(70,95), peak=g.rf(80,105);
+      const h=new Float32Array(W);
+      for (let x=0;x<W;x++){
+        const d=Math.abs(x-cx)/r;
+        h[x]=H*.78 + n[x]*10 - Math.max(0,1-d)*peak + (Math.abs(x-cx)<10 ? 14*(1-Math.abs(x-cx)/10) : 0);
+      }
+      g.ground(h, 3);
+      // 岩浆房 + 通道 + 火山口熔岩池
+      g.blob(cx, H-28, g.rf(28,40), g.rf(12,16), E.LAVA, E.STONE);
+      for (let y=Math.round(h[cx])-2;y<H-28;y++) for (let dx=-2;dx<=2;dx++) g.set(cx+dx,y,E.LAVA);
+      const rim=Math.min(h[cx-11],h[cx+11])+2;
+      g.fillTo(rim, cx-11, cx+11, E.LAVA);
+      // 一侧湖泊，另一侧森林
+      const lakeLeft=g.chance(.5);
+      const lv=H*.78-g.rf(4,12);
+      if (lakeLeft) g.fillTo(lv,0,cx-20,E.WATER); else g.fillTo(lv,cx+20,W-1,E.WATER);
+      if (lakeLeft) g.vegetate(cx+14,W-1,.5,.06); else g.vegetate(0,cx-14,.5,.06);
+      for (let k=0;k<12;k++){ const x=cx+g.ri(-6,6); g.set(x, h[cx]-g.ri(4,20), E.SMOKE, g.ri(60,200)); }
+  }},
+  { name:'地下油藏', build(g){
+      const n=g.noise1(70,3);
+      const h=new Float32Array(W);
+      for (let x=0;x<W;x++) h[x]=H*.33 + n[x]*14;
+      g.ground(h, 6, g.noise1(25,2));
+      const cave=g.noise2(g.rf(18,26));
+      for (let y=0;y<H;y++) for (let x=0;x<W;x++)
+        if (y>h[x]+14 && y<H-4 && cave(x,y)>.66) g.set(x,y,E.EMPTY);
+      // 洞穴底部：按列从下往上填液体
+      const kindAt=g.noise2(60);
+      for (let x=0;x<W;x++){
+        let y=H-1;
+        while (y>h[x]+14){
+          if (type[y*W+x]===E.EMPTY){
+            let top=y; while (top-1>h[x] && type[(top-1)*W+x]===E.EMPTY) top--;
+            const fillH=Math.round((y-top+1)*.6), liq=kindAt(x,y)>.45?E.OIL:E.WATER;
+            for (let k=0;k<fillH;k++) g.set(x,y-k,liq);
+            y=top-1;
+          } else y--;
+        }
+      }
+      g.blob(g.ri(40,W-40), H-6, g.rf(20,40), 5, E.LAVA, E.STONE);
+      const px=g.ri(40,W-40); g.blob(px, h[px]+1, g.rf(14,22), g.rf(6,9), E.EMPTY); g.fillTo(h[px]-1, px-22, px+22, E.WATER);
+      g.vegetate(0,W-1,.55,.08);
+  }},
+  { name:'沙漠绿洲', build(g){
+      const n=g.noise1(110,3), bed=g.noise1(50,2);
+      const ox=g.ri(W*.25,W*.75);
+      const h=new Float32Array(W);
+      for (let x=0;x<W;x++) h[x]=H*.55 + n[x]*26 + 22*Math.exp(-(((x-ox)/26)**2));
+      for (let x=0;x<W;x++){ const by=H*.84+bed[x]*8;
+        for (let y=Math.round(h[x]);y<H;y++) g.set(x,y, y<by?E.SAND:E.STONE); }
+      // 绿洲底部垫一层石头防止渗沙
+      for (let x=ox-30;x<=ox+30;x++){ const y=Math.round(h[x]); if (x>=0&&x<W) for (let k=0;k<3;k++) g.set(x,y+k,E.STONE); }
+      g.fillTo(h[ox]-14, ox-30, ox+30, E.WATER);
+      for (let k=0;k<4;k++){ const x=ox+g.ri(-38,38); const y=g.surface(x); if (type[y*W+x]===E.SAND) g.tree(x,y,g.ri(10,15),g.ri(4,6)); }
+      for (let x=ox-40;x<=ox+40;x++) if (g.chance(.4)) g.grass(x);
+      for (let k=0,m=g.ri(1,3);k<m;k++){ // 岩石台地
+        let mx=g.ri(20,W-20); if (Math.abs(mx-ox)<50) mx=(mx+120)%(W-40)+20;
+        const mw=g.ri(8,16), top=h[mx]-g.ri(18,36), mn=g.noise1(6,1);
+        for (let x=mx-mw;x<=mx+mw;x++){ const e=Math.abs(x-mx)/mw; for (let y=Math.round(top+mn[x]*3+(e>.6?(e-.6)*40:0));y<H*.85;y++) g.set(x,y,E.STONE); }
+      }
+      g.blob(g.ri(30,W-30), H-12, g.rf(15,30), g.rf(4,6), E.OIL, E.STONE);
+  }},
+  { name:'冰川峡谷', build(g){
+      const n=g.noise1(40,3);
+      const cx=g.ri(W*.4,W*.6), cw=g.rf(45,70);
+      const h=new Float32Array(W);
+      for (let x=0;x<W;x++){ const d=Math.min(1,Math.abs(x-cx)/cw); h[x]=H*.25 + n[x]*10 + (1-d*d)*H*.58; }
+      g.ground(h, 2);
+      for (let x=0;x<W;x++){ const d=Math.abs(x-cx)/cw; if (d>.75){ const t=Math.round(h[x]); for (let k=1;k<=g.ri(5,9);k++) g.set(x,t-k,E.ICE); } }
+      g.fillTo(h[cx]-g.rf(10,16), cx-cw, cx+cw, E.WATER);
+      // 冰川悬挂 + 岩壁里藏一个熔岩泡
+      const side=g.chance(.5)?-1:1, lx=Math.round(cx+side*(cw+g.rf(10,25)));
+      g.blob(lx, h[lx]+g.rf(25,40), g.rf(8,12), g.rf(8,12), E.LAVA, E.STONE);
+      // 冰川舌：从一侧岩壁顶部垂下
+      const gx=Math.round(cx-side*cw*.8);
+      for (let x=gx-12;x<=gx+12;x++){ if (x<0||x>=W) continue; const t=g.surface(x); const len=g.ri(6,12)+Math.max(0,12-Math.abs(x-gx));
+        for (let k=0;k<len;k++) if (g.get(x,t+k)!==E.STONE || k<3) g.set(x,t+k,E.ICE); }
+      for (let x=cx-cw;x<=cx+cw;x++) if (g.chance(.25)){ const y=g.surface(x); if (y<H && type[y*W+x]===E.SAND) g.grass(x); }
+      for (let k=0;k<5;k++){ const x=g.chance(.5)?g.ri(5,cx-cw):g.ri(cx+cw,W-6); const y=g.surface(x); if (y>20 && type[y*W+x]===E.ICE) g.tree(x,y,g.ri(6,10),3); }
+  }},
+  { name:'浮空群岛', build(g){
+      // 底部熔岩海
+      const n=g.noise1(50,2);
+      for (let x=0;x<W;x++){ const t=H-10+n[x]*4; for (let y=Math.round(t);y<H;y++) g.set(x,y,E.STONE); g.fillTo(H-18, x, x, E.LAVA); }
+      const k=g.ri(3,5), slots=[];
+      for (let i=0;i<k;i++) slots.push((i+.5)*W/k + g.rf(-12,12));
+      slots.forEach((cx,i)=>{
+        const rx=g.rf(20,Math.min(42,W/k*.48)), cy=g.rf(H*.25,H*.62), ry=g.rf(14,26);
+        const top=g.noise1(20,2);
+        for (let x=Math.floor(cx-rx);x<=cx+rx;x++){
+          if (x<0||x>=W) continue;
+          const t=1-((x-cx)/rx)**2; if (t<=0) continue;
+          const ty=Math.round(cy - 2 + top[x]*2), by=Math.round(cy + ry*Math.sqrt(t)*(.7+.3*top[(x*7)%W]));
+          for (let y=ty;y<=by;y++) g.set(x,y, y<ty+3?E.SAND:E.STONE);
+        }
+        if (g.chance(.55)){ // 岛上水池（有缺口的会形成瀑布）
+          const pw=rx*.45, pd=g.ri(5,9);
+          for (let x=Math.floor(cx-pw);x<=cx+pw;x++) for (let y=Math.round(cy-2);y<cy-2+pd;y++) g.set(x,y,E.EMPTY);
+          const leak=g.chance(.4);
+          g.fillTo(cy-2+(leak?2:0), cx-pw, cx+pw, E.WATER);
+          if (leak) for (let y=Math.round(cy-2);y<cy+pd;y++) g.set(Math.round(cx+pw)+1,y,E.EMPTY);
+        }
+        g.vegetate(Math.floor(cx-rx), Math.ceil(cx+rx), .5, .12);
+      });
+  }},
+];
+
+let currentSeedStr = '', currentSceneName = '';
+function generateScene(seedStr){
+  type.fill(0); life.fill(0); shade.fill(0); stamp.fill(0);
+  const rng = mulberry32(hashStr('sandbox:' + seedStr));
+  for (let k=0;k<8;k++) rng();          // 预热，打散相邻日期的相关性
+  const g = makeGen(rng);
+  const idx = Math.floor(rng()*SCENES.length);
+  sky = SKIES[Math.floor(rng()*SKIES.length)];
+  SCENES[idx].build(g);
+  currentSeedStr = seedStr;
+  currentSceneName = SCENES[idx].name + ' · ' + sky.name;
+  buildBackground();
+}
+
+/* =====================================================================
+ * 3. 模拟步进
+ * ===================================================================== */
+const rnd = Math.random;
+function newCell(i, t){
+  type[i]=t; shade[i]=(rnd()*256)|0; stamp[i]=frameId;
+  switch(t){
+    case E.FIRE:  life[i]=20+((rnd()*30)|0); break;
+    case E.SMOKE: life[i]=30+((rnd()*60)|0); break;
+    case E.STEAM: life[i]=70+((rnd()*120)|0); break;
+    case E.PLANT: life[i]=6; break;
+    case E.ICE:   life[i]=2; break;
+    default: life[i]=0;
+  }
+}
+function ignite(i){
+  const d=DEF[type[i]], b=d.burn||[20,40];
+  type[i]=E.FIRE; life[i]=b[0]+((rnd()*(b[1]-b[0]))|0); stamp[i]=frameId;
+}
+function swap(i,j){
+  const t=type[i], l=life[i], s=shade[i];
+  type[i]=type[j]; life[i]=life[j]; shade[i]=shade[j];
+  type[j]=t; life[j]=l; shade[j]=s;
+  stamp[j]=frameId; stamp[i]=frameId;
+}
+const NB_DX=[-1,0,1,-1,1,-1,0,1], NB_DY=[-1,-1,-1,0,0,1,1,1];
+// 随机取一个 8 邻居索引，越界返回 -1
+function randNb(x,y){
+  const r=(rnd()*8)|0, nx=x+NB_DX[r], ny=y+NB_DY[r];
+  return (nx<0||ny<0||nx>=W||ny>=H) ? -1 : ny*W+nx;
+}
+// t 能否沉入 j（j 可移动且更轻）
+function sinks(t,j){ const u=type[j]; return T_MOVABLE[u]===1 && T_DENS[u]<T_DENS[t]; }
+
+function stepPowder(i,x,y,t){
+  if (y>=H-1) return;
+  const b=i+W;
+  if (sinks(t,b)){ if (type[b]===E.EMPTY || rnd()<.5) swap(i,b); return; }
+  let d=rnd()<.5?-1:1;
+  for (let k=0;k<2;k++,d=-d){
+    const nx=x+d; if (nx<0||nx>=W) continue;
+    if (sinks(t,b+d) && sinks(t,i+d)){ swap(i,b+d); return; }
+  }
+}
+function stepLiquid(i,x,y,t,disp){
+  if (y<H-1){
+    const b=i+W;
+    if (sinks(t,b)){ swap(i,b); return; }
+    let d=rnd()<.5?-1:1;
+    for (let k=0;k<2;k++,d=-d){
+      const nx=x+d; if (nx<0||nx>=W) continue;
+      if (sinks(t,b+d) && sinks(t,i+d)){ swap(i,b+d); return; }
+    }
+  }
+  // 水平扩散
+  let d=rnd()<.5?-1:1;
+  for (let k=0;k<2;k++,d=-d){
+    let last=-1;
+    for (let s=1;s<=disp;s++){
+      const nx=x+d*s; if (nx<0||nx>=W) break;
+      const j=i+d*s; if (!sinks(t,j)) break;
+      last=j;
+      if (y<H-1 && sinks(t,j+W)) break;   // 遇到可下落的位置就停
+    }
+    if (last>=0){ swap(i,last); return; }
+  }
+}
+function stepGas(i,x,y,t){
+  if (life[i]>0) life[i]--;
+  if (life[i]===0 || (y===0 && rnd()<.02)){
+    // 蒸汽寿命结束时有概率冷凝为水（降雨）
+    if (t===E.STEAM && rnd()<(y<6?.6:.25)) newCell(i,E.WATER); else { type[i]=E.EMPTY; life[i]=0; }
+    return;
+  }
+  if (rnd()<.15) return; // 轻微停顿，让气体更飘
+  if (y>0){
+    const u=i-W;
+    if (type[u]===E.EMPTY){ swap(i,u); return; }
+    const d=rnd()<.5?-1:1, nx=x+d;
+    if (nx>=0&&nx<W && type[u+d]===E.EMPTY){ swap(i,u+d); return; }
+  }
+  const d=rnd()<.5?-1:1, nx=x+d;
+  if (nx>=0&&nx<W && type[i+d]===E.EMPTY) swap(i,i+d);
+}
+function stepFire(i,x,y){
+  let fuel=false;
+  for (let k=0;k<8;k++){            // 火焰检查全部 8 邻居（火格子少，开销可控）
+    const nx=x+NB_DX[k], ny=y+NB_DY[k];
+    if (nx<0||ny<0||nx>=W||ny>=H) continue;
+    const j=ny*W+nx, u=type[j];
+    if (u===E.WATER){ newCell(i,E.STEAM); if (rnd()<.4) newCell(j,E.STEAM); return; }
+    if (u===E.ICE){ if (rnd()<.1) newCell(j,E.WATER); }
+    else if (T_FLAM[u]>0){ fuel=true; if (rnd()<T_FLAM[u]*2.5) ignite(j); }
+  }
+  if (fuel && life[i]<20) life[i]++;      // 贴着燃料时火焰不急于熄灭
+  if (life[i]>0) life[i]--;
+  if (life[i]===0){ if (rnd()<.35) newCell(i,E.SMOKE); else { type[i]=E.EMPTY; } return; }
+  if (y>0){
+    const up=i-W;
+    if (type[up]===E.EMPTY){
+      if (rnd()<.03) newCell(up,E.SMOKE);
+      else if (!fuel && life[i]<40 && rnd()<.35){ swap(i,up); return; }
+    }
+  }
+  if (!fuel && y<H-1 && type[i+W]===E.EMPTY && life[i]<40 && rnd()<.1) swap(i,i+W); // 脱离燃料的火星会坠落一点
+}
+function stepLava(i,x,y){
+  const j=randNb(x,y);
+  if (j>=0){
+    const u=type[j];
+    if (u===E.WATER){ newCell(j,E.STEAM); if (rnd()<.35){ newCell(i,E.STONE); return; } }
+    else if (u===E.ICE){ newCell(j,E.WATER); }
+    else if (T_FLAM[u]>0 && rnd()<.3) ignite(j);
+    else if (u===E.SAND && rnd()<.004) newCell(j,E.GLASS);
+    else if (u===E.EMPTY && j<i-W+2 && rnd()<.002) newCell(j, rnd()<.5?E.FIRE:E.SMOKE);
+  }
+  if (rnd()<.45) stepLiquid(i,x,y,E.LAVA,1);
+}
+function stepPlant(i,x,y){
+  if (life[i]===0 || rnd()>.03) return;
+  const j=randNb(x,y);
+  if (j>=0 && type[j]===E.WATER){ type[j]=E.PLANT; life[j]=life[i]-1; shade[j]=(rnd()*256)|0; stamp[j]=frameId; life[i]--; }
+}
+function stepIce(i,x,y){
+  const j=randNb(x,y); if (j<0) return;
+  const u=type[j];
+  if ((u===E.FIRE||u===E.LAVA) && rnd()<.25){ newCell(i,E.WATER); return; }
+  if (u===E.STEAM && rnd()<.05){ newCell(i,E.WATER); return; }
+  if (u===E.WATER && life[i]>0 && rnd()<.01){ type[j]=E.ICE; life[j]=life[i]-1; shade[j]=(rnd()*256)|0; stamp[j]=frameId; }
+}
+
+function step(){
+  frameId = frameId>=255 ? 1 : frameId+1;
+  for (let y=H-1;y>=0;y--){
+    const ltr=((y+frameId)&1)===0, row=y*W;
+    for (let k=0;k<W;k++){
+      const x=ltr?k:W-1-k, i=row+x, t=type[i];
+      if (t===E.EMPTY || stamp[i]===frameId) continue;
+      switch(t){
+        case E.SAND:  stepPowder(i,x,y,t); break;
+        case E.WATER: stepLiquid(i,x,y,t,5); break;
+        case E.OIL:   stepLiquid(i,x,y,t,3); break;
+        case E.LAVA:  stepLava(i,x,y); break;
+        case E.STEAM: case E.SMOKE: stepGas(i,x,y,t); break;
+        case E.FIRE:  stepFire(i,x,y); break;
+        case E.PLANT: stepPlant(i,x,y); break;
+        case E.ICE:   stepIce(i,x,y); break;
+        // STONE / WOOD / GLASS：静态
+      }
+    }
+  }
+}
+
+/* =====================================================================
+ * 4. 渲染（ImageData + Uint32 调色板，CSS 像素放大）
+ * ===================================================================== */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+cv.width=W; cv.height=H;
+const img=ctx.createImageData(W,H), buf=new Uint32Array(img.data.buffer);
+const pack=(r,g,b)=>(0xff000000|(Math.max(0,Math.min(255,b))<<16)|(Math.max(0,Math.min(255,g))<<8)|Math.max(0,Math.min(255,r)))>>>0;
+const hex=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const PAL=new Uint32Array(16*16);   // 每元素 16 个色阶
+DEF.forEach((d,t)=>{ const [r,g,b]=hex(d.color), v=d.vary||0;
+  for (let s=0;s<16;s++){ const o=((s/15)*2-1)*v; PAL[t*16+s]=pack(r+o,g+o,b+o*.6); } });
+const FIRE_PAL=new Uint32Array(64);
+for (let k=0;k<64;k++){ const f=k/63; FIRE_PAL[k]=pack(255, 70+185*f, 20+60*f*f); }
+const BG=new Uint32Array(N);
+function buildBackground(){
+  const r=mulberry32(hashStr('sky:'+currentSeedStr)), a=sky.top, b=sky.bot, stars=sky.stars||0;
+  for (let y=0;y<H;y++){ const f=y/(H-1);
+    for (let x=0;x<W;x++){ const n=(r()-.5)*3;
+      let R=a[0]+(b[0]-a[0])*f+n, G=a[1]+(b[1]-a[1])*f+n, B=a[2]+(b[2]-a[2])*f+n;
+      if (r()<stars*(1-f)){ const k=40+r()*90; R+=k; G+=k; B+=k; }
+      BG[y*W+x]=pack(R,G,B); } }
+}
+function render(tick){
+  for (let y=0,i=0;y<H;y++){
+        for (let x=0;x<W;x++,i++){
+      const t=type[i];
+      if (t===E.EMPTY){ buf[i]=BG[i]; continue; }
+      if (t===E.FIRE){ buf[i]=FIRE_PAL[Math.min(63,(life[i]+(shade[i]&15))>>1)]; continue; }
+      if (t===E.LAVA){ buf[i]=PAL[t*16+(((shade[i]>>4)+(tick>>3)+x)&15)]; continue; }
+      buf[i]=PAL[t*16+(shade[i]>>4)];
+    }
+  }
+  ctx.putImageData(img,0,0);
+}
+
+/* =====================================================================
+ * 5. 输入（Pointer Events：鼠标 / 触摸 / 手写笔统一处理）
+ * ===================================================================== */
+let current=E.SAND, brush=4, overwrite=false;
+const cursorEl=document.getElementById('cursor');
+function paint(cx,cy,el){
+  const r=brush-1, r2=(r+.5)*(r+.5), fill=DEF[el].fill;
+  for (let dy=-r;dy<=r;dy++) for (let dx=-r;dx<=r;dx++){
+    if (dx*dx+dy*dy>r2) continue;
+    const x=cx+dx, y=cy+dy; if (x<0||y<0||x>=W||y>=H) continue;
+    const i=y*W+x;
+    if (el===E.EMPTY){ type[i]=0; life[i]=0; continue; }
+    const cur=type[i];
+    if (!overwrite && cur!==E.EMPTY && T_KIND[cur]!==KIND.GAS) continue;
+    if (fill<1 && rnd()>fill) continue;
+    newCell(i,el);
+  }
+}
+function line(x0,y0,x1,y1,el){   // Bresenham 插值，快速拖动也连续
+  const dx=Math.abs(x1-x0), dy=-Math.abs(y1-y0), sx=x0<x1?1:-1, sy=y0<y1?1:-1;
+  let err=dx+dy, n=0;
+  for(;;){ paint(x0,y0,el); if ((x0===x1&&y0===y1) || ++n>2000) break;
+    const e2=2*err; if (e2>=dy){err+=dy;x0+=sx;} if (e2<=dx){err+=dx;y0+=sy;} }
+}
+function toCell(e){
+  const r=cv.getBoundingClientRect();
+  return [Math.floor((e.clientX-r.left)/r.width*W), Math.floor((e.clientY-r.top)/r.height*H)];
+}
+let drawing=false, drawEl=E.SAND, last=null;
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  const [x,y]=toCell(e);
+  if (e.altKey && x>=0&&y>=0&&x<W&&y<H){ selectElement(type[y*W+x]); return; } // 吸取
+  cv.setPointerCapture(e.pointerId);
+  drawing=true; drawEl=(e.button===2||e.shiftKey)?E.EMPTY:current; last=[x,y];
+  paint(x,y,drawEl);
+});
+cv.addEventListener('pointermove',e=>{
+  moveCursor(e);
+  if (!drawing) return;
+  const [x,y]=toCell(e);
+  line(last[0],last[1],x,y,drawEl); last=[x,y];
+});
+const endDraw=()=>{ drawing=false; last=null; };
+cv.addEventListener('pointerup',endDraw); cv.addEventListener('pointercancel',endDraw);
+cv.addEventListener('pointerleave',e=>{ if (e.pointerType==='mouse') cursorEl.style.display='none'; });
+function moveCursor(e){
+  if (e.pointerType!=='mouse'){ cursorEl.style.display='none'; return; }
+  const r=cv.getBoundingClientRect(), s=r.width/W, d=(brush*2-1)*s;
+  cursorEl.style.display='block'; cursorEl.style.width=cursorEl.style.height=d+'px';
+  cursorEl.style.left=(e.clientX-r.left)+'px'; cursorEl.style.top=(e.clientY-r.top)+'px';
+}
+
+/* =====================================================================
+ * 6. UI
+ * ===================================================================== */
+const $=id=>document.getElementById(id);
+const paletteEl=$('palette');
+PALETTE_ORDER.forEach(t=>{
+  const d=DEF[t], b=document.createElement('button');
+  b.className='el'; b.dataset.t=t; b.title=d.name+(d.key?`（快捷键 ${d.key}）`:'');
+  const sw = t===E.EMPTY ? 'background:repeating-conic-gradient(#2a3150 0 25%,#151a2c 0 50%) 0 0/8px 8px' : `background:${d.color}`;
+  b.innerHTML=`<span class="sw" style="${sw}"></span>${d.name}${d.key?`<kbd>${d.key}</kbd>`:''}`;
+  b.onclick=()=>selectElement(t);
+  paletteEl.appendChild(b);
+});
+function selectElement(t){
+  if (DEF[t]===undefined) return;
+  current=t;
+  paletteEl.querySelectorAll('.el').forEach(b=>b.classList.toggle('on',+b.dataset.t===t));
+}
+selectElement(E.SAND);
+
+let paused=false, stepsPerFrame=1;
+function setPaused(p){ paused=p; $('pauseBtn').textContent=p?'▶ 继续':'⏸ 暂停'; }
+$('pauseBtn').onclick=()=>setPaused(!paused);
+$('stepBtn').onclick=()=>{ setPaused(true); step(); };
+$('brush').oninput=e=>{ brush=+e.target.value; $('brushVal').textContent=brush; };
+$('speed').oninput=e=>{ stepsPerFrame=+e.target.value; $('speedVal').textContent=stepsPerFrame+'×'; };
+$('overwriteBtn').onclick=e=>{ overwrite=!overwrite; e.target.classList.toggle('on',overwrite); e.target.textContent='覆盖模式：'+(overwrite?'开':'关'); };
+$('clearBtn').onclick=()=>{ type.fill(0); life.fill(0); toast('已清空画布'); };
+
+// ---- 日期 / 场景 ----
+const TODAY=localDateStr();
+const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
+function validDate(s){ if (!DATE_RE.test(s)) return false; const d=new Date(s+'T00:00:00'); return !isNaN(d) && localDateStr(d)===s; }
+let viewDate=TODAY, randomSeed=null;
+const q=new URLSearchParams(location.search).get('date');
+if (q && validDate(q)) viewDate=q;
+
+function loadScene(){
+  const seed = randomSeed ? 'random:'+randomSeed : viewDate;
+  generateScene(seed);
+  $('dateLabel').textContent = randomSeed ? `随机 #${randomSeed}` : (viewDate===TODAY ? `${viewDate} · 今日` : viewDate);
+  $('sceneLabel').textContent = currentSceneName;
+  $('resetBtn').textContent = randomSeed ? '↺ 重置此场景' : (viewDate===TODAY ? '↺ 重置今日场景' : '↺ 重置该日场景');
+  $('datePick').value = viewDate;
+  document.title = `物理沙盒 · ${currentSceneName}`;
+}
+function setDate(d){
+  viewDate=d; randomSeed=null;
+  const url=new URL(location.href);
+  if (d===TODAY) url.searchParams.delete('date'); else url.searchParams.set('date',d);
+  history.replaceState(null,'',url);
+  loadScene();
+}
+$('resetBtn').onclick=()=>{ loadScene(); toast('场景已重置'); };
+$('randomBtn').onclick=()=>{ randomSeed=Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0'); loadScene(); toast('随机场景：'+currentSceneName); };
+$('todayBtn').onclick=()=>{ setDate(TODAY); toast('回到今日场景'); };
+$('datePick').max=TODAY;
+$('datePick').onchange=e=>{ if (validDate(e.target.value)) setDate(e.target.value); };
+
+let toastT=0;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1600); }
+
+// ---- 键盘 ----
+addEventListener('keydown',e=>{
+  if (e.target.tagName==='INPUT') return;
+  if (e.code==='Space'){ e.preventDefault(); setPaused(!paused); return; }
+  if (e.key==='['||e.key===']'){ brush=Math.max(1,Math.min(24,brush+(e.key===']'?1:-1))); $('brush').value=brush; $('brushVal').textContent=brush; return; }
+  if (e.key==='r'||e.key==='R'){ loadScene(); toast('场景已重置'); return; }
+  const t=PALETTE_ORDER.find(t=>DEF[t].key===e.key); if (t!==undefined) selectElement(t);
+});
+
+// ---- 画布自适应 ----
+function fit(){
+  const st=$('stage'), cs=getComputedStyle(st);
+  const aw=st.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
+  const ah=st.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
+  const s=Math.max(.5,Math.min(aw/W, ah/H));
+  cv.style.width=Math.floor(W*s)+'px'; cv.style.height=Math.floor(H*s)+'px';
+}
+addEventListener('resize',fit);
+if (window.ResizeObserver) new ResizeObserver(fit).observe($('stage'));
+
+// ---- 主循环 ----
+let tick=0, fpsAcc=0, fpsN=0, lastT=performance.now();
+function loop(now){
+  if (!paused) for (let k=0;k<stepsPerFrame;k++) step();
+  render(tick++);
+  const dt=now-lastT; lastT=now; fpsAcc+=dt; fpsN++;
+  if (fpsAcc>=500){
+    let c=0; for (let i=0;i<N;i++) if (type[i]!==0) c++;
+    $('stats').textContent=`${Math.round(1000*fpsN/fpsAcc)} fps · ${c.toLocaleString()} 粒子 · ${W}×${H}`;
+    fpsAcc=0; fpsN=0;
+  }
+  requestAnimationFrame(loop);
+}
+loadScene(); fit();
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>
