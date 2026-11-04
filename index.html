@@ -148,7 +148,7 @@
         <b>左键/手指</b> 绘制 · <b>右键</b> 或 <b>Shift</b> 擦除<br>
         <b>Alt+点击</b> 吸取元素 · <b>数字键</b> 切换元素<br>
         <b>[ ]</b> 画笔大小 · <b>空格</b> 暂停 · <b>R</b> 重置<br>
-        火会点燃植物、木头和油；水灭火变蒸汽；熔岩遇水凝成石头；蒸汽升到顶部会冷凝成雨。
+        石头、木头等固体要连到地面或画面边缘才不会掉落；火会点燃植物、木头和油；水灭火变蒸汽；熔岩遇水凝成石头；蒸汽升到顶部会冷凝成雨。
       </div>
     </div>
   </aside>
@@ -194,6 +194,10 @@ const PALETTE_ORDER = [E.EMPTY,E.SAND,E.WATER,E.STONE,E.WOOD,E.PLANT,E.FIRE,E.OI
 // 快速查表（typed arrays）
 const T_KIND = new Uint8Array(16), T_DENS = new Uint8Array(16), T_FLAM = new Float32Array(16), T_MOVABLE = new Uint8Array(16);
 DEF.forEach((d,i)=>{ T_KIND[i]=d.kind; T_DENS[i]=d.dens; T_FLAM[i]=d.flam; T_MOVABLE[i]= (d.kind!==KIND.STATIC && d.kind!==KIND.FIRE) ? 1 : 0; });
+// 刚性固体：必须（经由相连的固体）连到画面边缘才能停在原地；边缘视为连着画面外看不见的固体
+const T_SOLID = new Uint8Array(16), T_BUOY = new Uint8Array(16);
+[E.STONE,E.WOOD,E.PLANT,E.ICE,E.GLASS].forEach(t=>T_SOLID[t]=1);
+[E.WOOD,E.PLANT,E.ICE].forEach(t=>T_BUOY[t]=1);   // 全由这些组成的固体块浮在水上
 
 /* ---------- 网格状态 ---------- */
 const type  = new Uint8Array(N);   // 元素类型
@@ -413,7 +417,7 @@ const SCENES = [
       for (let x=cx-cw;x<=cx+cw;x++) if (g.chance(.25)){ const y=g.surface(x); if (y<H && type[y*W+x]===E.SAND) g.grass(x); }
       for (let k=0;k<5;k++){ const x=g.chance(.5)?g.ri(5,cx-cw):g.ri(cx+cw,W-6); const y=g.surface(x); if (y>20 && type[y*W+x]===E.ICE) g.tree(x,y,g.ri(6,10),3); }
   }},
-  { name:'浮空群岛', build(g){
+  { name:'石柱群岛', build(g){
       // 底部熔岩海
       const n=g.noise1(50,2);
       for (let x=0;x<W;x++){ const t=H-10+n[x]*4; for (let y=Math.round(t);y<H;y++) g.set(x,y,E.STONE); g.fillTo(H-18, x, x, E.LAVA); }
@@ -421,19 +425,26 @@ const SCENES = [
       for (let i=0;i<k;i++) slots.push((i+.5)*W/k + g.rf(-12,12));
       slots.forEach((cx,i)=>{
         const rx=g.rf(20,Math.min(42,W/k*.48)), cy=g.rf(H*.25,H*.62), ry=g.rf(14,26);
-        const top=g.noise1(20,2);
+        const top=g.noise1(20,2), bys=new Int16Array(W);
         for (let x=Math.floor(cx-rx);x<=cx+rx;x++){
           if (x<0||x>=W) continue;
           const t=1-((x-cx)/rx)**2; if (t<=0) continue;
-          const ty=Math.round(cy - 2 + top[x]*2), by=Math.round(cy + ry*Math.sqrt(t)*(.7+.3*top[(x*7)%W]));
+          const ty=Math.round(cy - 2 + top[x]*2), by=Math.round(cy + ry*Math.sqrt(t)*(.7+.3*top[(x*7)%W])); bys[x]=by;
           for (let y=ty;y<=by;y++) g.set(x,y, y<ty+3?E.SAND:E.STONE);
+        }
+        // 石柱：把岛和海底岩床连起来，否则岛会掉进熔岩海
+        const pc=cx+g.rf(-rx*.3,rx*.3), pw=g.rf(2.5,5), wob=g.noise1(16,2);
+        for (let y=Math.round(cy);y<H;y++){
+          const off=wob[y%W]*3, half=pw*(1+.6*Math.max(0,(y-(H-24))/24));
+          for (let x=Math.round(pc+off-half);x<=Math.round(pc+off+half);x++) g.set(x,y,E.STONE);
         }
         if (g.chance(.55)){ // 岛上水池（有缺口的会形成瀑布）
           const pw=rx*.45, pd=g.ri(5,9);
-          for (let x=Math.floor(cx-pw);x<=cx+pw;x++) for (let y=Math.round(cy-2);y<cy-2+pd;y++) g.set(x,y,E.EMPTY);
+          for (let x=Math.floor(cx-pw);x<=cx+pw;x++) for (let y=Math.round(cy-2);y<Math.min(cy-2+pd,(bys[x]||0)-2);y++) g.set(x,y,E.EMPTY);
           const leak=g.chance(.4);
           g.fillTo(cy-2+(leak?2:0), cx-pw, cx+pw, E.WATER);
-          if (leak) for (let y=Math.round(cy-2);y<cy+pd;y++) g.set(Math.round(cx+pw)+1,y,E.EMPTY);
+          if (leak){ const lx=Math.round(cx+pw)+1, lb=Math.min(cy-2+pd, (bys[lx]||0)-2);   // 缺口不切穿岛底，避免切下一块悬空碎片
+            for (let y=Math.round(cy-2);y<lb;y++) g.set(lx,y,E.EMPTY); }
         }
         g.vegetate(Math.floor(cx-rx), Math.ceil(cx+rx), .5, .12);
       });
@@ -449,6 +460,7 @@ function generateScene(seedStr){
   const idx = Math.floor(rng()*SCENES.length);
   sky = SKIES[Math.floor(rng()*SKIES.length)];
   SCENES[idx].build(g);
+  solidDirty = true;
   currentSeedStr = seedStr;
   currentSceneName = SCENES[idx].name + ' · ' + sky.name;
   buildBackground();
@@ -459,6 +471,7 @@ function generateScene(seedStr){
  * ===================================================================== */
 const rnd = Math.random;
 function newCell(i, t){
+  if (T_SOLID[t] || T_SOLID[type[i]]) solidDirty = true;
   type[i]=t; shade[i]=(rnd()*256)|0; stamp[i]=frameId;
   switch(t){
     case E.FIRE:  life[i]=20+((rnd()*30)|0); break;
@@ -471,6 +484,7 @@ function newCell(i, t){
 }
 function ignite(i){
   const d=DEF[type[i]], b=d.burn||[20,40];
+  if (T_SOLID[type[i]]) solidDirty = true;
   type[i]=E.FIRE; life[i]=b[0]+((rnd()*(b[1]-b[0]))|0); stamp[i]=frameId;
 }
 function swap(i,j){
@@ -575,14 +589,95 @@ function stepLava(i,x,y){
 function stepPlant(i,x,y){
   if (life[i]===0 || rnd()>.03) return;
   const j=randNb(x,y);
-  if (j>=0 && type[j]===E.WATER){ type[j]=E.PLANT; life[j]=life[i]-1; shade[j]=(rnd()*256)|0; stamp[j]=frameId; life[i]--; }
+  if (j>=0 && type[j]===E.WATER){ type[j]=E.PLANT; solidDirty=true; life[j]=life[i]-1; shade[j]=(rnd()*256)|0; stamp[j]=frameId; life[i]--; }
 }
 function stepIce(i,x,y){
   const j=randNb(x,y); if (j<0) return;
   const u=type[j];
   if ((u===E.FIRE||u===E.LAVA) && rnd()<.25){ newCell(i,E.WATER); return; }
   if (u===E.STEAM && rnd()<.05){ newCell(i,E.WATER); return; }
-  if (u===E.WATER && life[i]>0 && rnd()<.01){ type[j]=E.ICE; life[j]=life[i]-1; shade[j]=(rnd()*256)|0; stamp[j]=frameId; }
+  if (u===E.WATER && life[i]>0 && rnd()<.01){ type[j]=E.ICE; solidDirty=true; life[j]=life[i]-1; shade[j]=(rnd()*256)|0; stamp[j]=frameId; }
+}
+
+/* ---------- 固体支撑：悬空的固体块整体下落 ----------
+ * 从四条边上的固体出发做 8 邻接泛洪，被连到的固体算"有支撑"。
+ * 其余固体按连通块分组，每步整体下移 1 格：
+ *   - 下方是空气、气体、火、液体 → 把它们挤到块的上方（物质守恒）
+ *   - 下方是别的固体或粉末（沙子）→ 落地停住
+ *   - 全由木头/植物/冰组成的块碰到水也停住（浮在水面）
+ */
+const supMark = new Uint32Array(N), compId = new Int32Array(N);
+const sQueue = new Int32Array(N), compCells = new Int32Array(N);
+let supGen = 0, compSerial = 0;
+let solidDirty = true;      // 有固体被创建/销毁/移动后置位，才需要重新计算支撑
+let comps = [];             // 上次计算出的悬空块 [start, end, maxIndex, id, buoyant]
+function settleSolids(){
+  if (solidDirty){ findLooseSolids(); solidDirty = false; }
+  if (!comps.length) return false;
+  const moved = dropLooseSolids();
+  if (moved) solidDirty = true;
+  return moved;
+}
+function findLooseSolids(){
+  if (++supGen > 0xFFFFFFF0){ supMark.fill(0); supGen = 1; }
+  const g = supGen;
+  let qh = 0, qt = 0;
+  const seed = i => { if (T_SOLID[type[i]] && supMark[i] !== g){ supMark[i] = g; sQueue[qt++] = i; } };
+  for (let x = 0; x < W; x++){ seed(x); seed((H-1)*W + x); }
+  for (let y = 1; y < H-1; y++){ seed(y*W); seed(y*W + W-1); }
+  const flood = () => {
+    while (qh < qt){
+      const i = sQueue[qh++], x = i % W, y = (i / W) | 0;
+      for (let k = 0; k < 8; k++){
+        const nx = x + NB_DX[k], ny = y + NB_DY[k];
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = ny*W + nx;
+        if (supMark[j] !== g && T_SOLID[type[j]]){ supMark[j] = g; sQueue[qt++] = j; }
+      }
+    }
+  };
+  flood();
+  // 收集没有支撑的连通块
+  comps = [];
+  let cn = 0;
+  for (let i = N-1; i >= 0; i--){
+    if (!T_SOLID[type[i]] || supMark[i] === g) continue;
+    const start = cn, id = ++compSerial;
+    supMark[i] = g; qh = 0; qt = 0; sQueue[qt++] = i;
+    let buoy = 1;
+    while (qh < qt){
+      const c = sQueue[qh++], x = c % W, y = (c / W) | 0;
+      compCells[cn++] = c; compId[c] = id;
+      if (!T_BUOY[type[c]]) buoy = 0;
+      for (let k = 0; k < 8; k++){
+        const nx = x + NB_DX[k], ny = y + NB_DY[k];
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = ny*W + nx;
+        if (supMark[j] !== g && T_SOLID[type[j]]){ supMark[j] = g; sQueue[qt++] = j; }
+      }
+    }
+    comps.push([start, cn, i, id, buoy]);   // 逆序扫描，i 即块内最大下标（最低点所在行）
+  }
+}
+// 没有固体变化时只重新检查缓存的悬空块能否下落（例如垫在下面的沙子流走了）
+function dropLooseSolids(){
+  // 自下而上处理，下面的块先落，上面的块才能跟着落
+  let moved = false;
+  for (const [s0, s1, , id, buoy] of comps){
+    let ok = true;
+    for (let k = s0; k < s1 && ok; k++){
+      const j = compCells[k] + W;
+      if (j >= N){ ok = false; break; }
+      if (compId[j] === id) continue;
+      const u = type[j], kd = T_KIND[u];
+      if (T_SOLID[u] || kd === KIND.POWDER || (buoy && u === E.WATER)) ok = false;
+    }
+    if (!ok) continue;
+    const cells = compCells.subarray(s0, s1).sort();     // 升序；从最下面一行往上逐格交换
+    for (let k = cells.length - 1; k >= 0; k--) swap(cells[k], cells[k] + W);
+    moved = true;
+  }
+  return moved;
 }
 
 function step(){
@@ -605,6 +700,7 @@ function step(){
       }
     }
   }
+  settleSolids();
 }
 
 /* =====================================================================
@@ -653,7 +749,7 @@ function paint(cx,cy,el){
     if (dx*dx+dy*dy>r2) continue;
     const x=cx+dx, y=cy+dy; if (x<0||y<0||x>=W||y>=H) continue;
     const i=y*W+x;
-    if (el===E.EMPTY){ type[i]=0; life[i]=0; continue; }
+    if (el===E.EMPTY){ if (T_SOLID[type[i]]) solidDirty=true; type[i]=0; life[i]=0; continue; }
     const cur=type[i];
     if (!overwrite && cur!==E.EMPTY && T_KIND[cur]!==KIND.GAS) continue;
     if (fill<1 && rnd()>fill) continue;
